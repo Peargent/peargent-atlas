@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
+
 import { Instrument_Serif, Inter } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +18,9 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: "Peargent Atlas",
   description: "Visualize your agent architectures",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -29,6 +34,7 @@ export default function RootLayout({
         className={`${inter.variable} ${instrumentSerif.variable} antialiased`}
       >
         {children}
+        <Analytics />
       </body>
     </html>
   );

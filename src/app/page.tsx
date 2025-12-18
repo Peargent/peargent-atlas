@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Upload, X, FileJson, Plus, Menu, PanelLeft, TreeDeciduous, Play, Download, Save, MoreHorizontal, Image as ImageIcon, FileCode } from "lucide-react";
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from "react";
+import { ReactFlow, Controls, Background, useNodesState, useEdgesState, BackgroundVariant, addEdge, Connection, useReactFlow, ReactFlowProvider, Panel } from "@xyflow/react";
 import { type Node as ReactFlowNode, type Edge } from '@xyflow/react';
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,7 @@ import * as htmlToImage from 'html-to-image';
 import AtlasGraph from '@/components/atlas/AtlasGraph';
 import AtlasSidebar from '@/components/atlas/AtlasSidebar';
 import { Toast } from "@/components/ui/Toast";
+import { Upload, Menu, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, GripHorizontal } from "lucide-react";
 
 interface AtlasTab {
     id: string;
@@ -337,21 +338,33 @@ export default function AtlasPage() {
                 />
 
                 {/* Mobile Floating Action Buttons (Bottom Right) */}
-                <div className="fixed bottom-4 right-4 z-30 flex flex-col gap-3 md:hidden">
-                    <div className="relative" ref={mobileDownloadMenuRef}>
+                {/* Mobile Floating Dock (Bottom Center) */}
+                {/* Mobile Floating Dock (Bottom Center) */}
+                <div
+                    className="fixed bottom-6 left-1/2 md:hidden z-30 bg-card/80 backdrop-blur-xl border border-white/10 shadow-2xl rounded-full"
+                    style={{
+                        transform: "translateX(-50%)",
+                    }}
+                >
+                    {/* Content Container */}
+                    <div className="flex items-center gap-3 px-3 py-1.5 relative">
+                        {/* Centered Menu */}
                         <AnimatePresence>
                             {isDownloadOpen && (
                                 <motion.div
-                                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                                    className="absolute bottom-14 right-0 min-w-[180px] bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl flex flex-col p-1.5 z-50 origin-bottom-right"
+                                    initial={{ opacity: 0, scale: 0.9, y: 10, x: "-50%" }}
+                                    animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
+                                    exit={{ opacity: 0, scale: 0.9, y: 10, x: "-50%" }}
+                                    className="absolute bottom-full mb-6 left-1/2 min-w-[200px] bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl flex flex-col p-1.5 z-50 origin-bottom"
                                 >
                                     <button
-                                        onClick={handleDownloadPear}
-                                        className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 rounded-lg text-sm transition-colors text-left"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDownloadPear();
+                                        }}
+                                        className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-sm transition-colors text-left"
                                     >
-                                        <div className="p-1 rounded bg-primary/10 text-primary">
+                                        <div className="p-1.5 rounded-md bg-primary/10 text-primary">
                                             <FileJson className="w-4 h-4" />
                                         </div>
                                         <div className="flex flex-col gap-0.5">
@@ -360,10 +373,13 @@ export default function AtlasPage() {
                                         </div>
                                     </button>
                                     <button
-                                        onClick={handleDownloadImage}
-                                        className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/5 rounded-lg text-sm transition-colors text-left"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDownloadImage();
+                                        }}
+                                        className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-sm transition-colors text-left"
                                     >
-                                        <div className="p-1 rounded bg-blue-500/10 text-blue-500">
+                                        <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
                                             <ImageIcon className="w-4 h-4" />
                                         </div>
                                         <div className="flex flex-col gap-0.5">
@@ -374,28 +390,37 @@ export default function AtlasPage() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
+
+                        <div className="relative" ref={mobileDownloadMenuRef}>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsDownloadOpen(!isDownloadOpen);
+                                }}
+                                className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/10 text-foreground transition-all active:scale-95"
+                                title="Download"
+                            >
+                                <Download className="w-5 h-5 opacity-80" />
+                            </button>
+                        </div>
+
+                        <div className="w-px h-5 bg-white/10" />
+
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                setIsDownloadOpen(!isDownloadOpen);
+                                handleSave();
                             }}
-                            className="flex items-center justify-center w-12 h-12 bg-card border border-border rounded-xl shadow-lg hover:bg-secondary/80 text-foreground transition-all active:scale-95"
-                            title="Download"
+                            className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/10 text-foreground transition-all active:scale-95"
+                            title="Save"
                         >
-                            <Download className="w-5 h-5 opacity-90" />
+                            <Save className="w-5 h-5 opacity-80" />
                         </button>
                     </div>
-                    <button
-                        onClick={handleSave}
-                        className="flex items-center justify-center w-12 h-12 bg-card border border-border rounded-xl shadow-lg hover:bg-secondary/80 text-foreground transition-all active:scale-95"
-                        title="Save"
-                    >
-                        <Save className="w-5 h-5 opacity-90" />
-                    </button>
                 </div>
 
                 {/* Top Bar: Tabs & Actions */}
-                <div className="border-b border-border bg-card/50 backdrop-blur-sm flex flex-col md:flex-row items-center px-4 gap-2 z-40 shrink-0 md:h-14 md:py-0 transition-all">
+                <div className="border-b border-white/10 bg-card/40 backdrop-blur-xl flex flex-col md:flex-row items-center px-4 gap-2 z-40 shrink-0 md:h-[60px] md:py-0 transition-all shadow-sm">
 
                     {/* Mobile Header Row: Logo + Menu */}
                     <div className="flex items-center justify-between w-full md:hidden mb-1 md:mb-0 mt-2">
@@ -437,7 +462,7 @@ export default function AtlasPage() {
                                     {activeTabId === tab.id && (
                                         <motion.div
                                             layoutId="activeTabBottomBorder"
-                                            className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary z-10"
+                                            className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary z-10 shadow-[0_0_10px_2px_rgba(var(--primary),0.5)]"
                                         />
                                     )}
                                     <button

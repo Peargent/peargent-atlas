@@ -296,7 +296,7 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
                             </a>
                         </div>
                         <div className="flex items-center gap-4">
-                            <ThemeToggle className="border-none bg-transparent p-0" mode="light-dark" />
+                            <ThemeToggle className="border-none bg-transparent p-0" />
                         </div>
                     </div>
                     {/* Divider */}
@@ -322,7 +322,7 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
                         </a>
                     </div>
                     <div className="flex items-center gap-2">
-                        <ThemeToggle className="border-none bg-transparent p-0" mode="light-dark" />
+                        <ThemeToggle className="border-none bg-transparent p-0" />
                         {onClose && (
                             <button
                                 onClick={onClose}
@@ -386,7 +386,7 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
                         </a>
                     </div>
                     <div className="flex items-center gap-4">
-                        <ThemeToggle className="border-none bg-transparent p-0" mode="light-dark" />
+                        <ThemeToggle className="border-none bg-transparent p-0" />
                     </div>
                 </div>
                 {/* Divider */}
