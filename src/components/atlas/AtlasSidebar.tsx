@@ -1,150 +1,249 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, CircleHelp, User, Sparkles, Menu, PanelLeft } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, GripVertical, History } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme-toggle';
 
+// Types
 interface SidebarProps {
     data: any;
     selectedId?: string | null;
     onSelect?: (id: string) => void;
     className?: string;
-    hideLogo?: boolean;
     onClose?: () => void;
+    onToggleCollapse?: () => void;
 }
 
 interface TreeNode {
     id: string;
     label: string;
-    type: 'pool' | 'router' | 'agent' | 'tool' | 'collection';
+    type: 'pool' | 'router' | 'agent' | 'tool' | 'collection' | 'history';
     children?: TreeNode[];
     icon?: any;
 }
 
-export default function AtlasSidebar({ data, selectedId, onSelect, className, hideLogo, onClose }: SidebarProps) {
+// Resize limits
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 450;
+const DEFAULT_WIDTH = 300;
+const COLLAPSED_WIDTH = 48;
+
+// Constants
+const TYPE_COLORS: Record<TreeNode['type'], string> = {
+    pool: 'text-emerald-500',
+    router: 'text-purple-500',
+    agent: 'text-blue-500',
+    tool: 'text-amber-500',
+    collection: 'text-muted-foreground',
+    history: 'text-pink-500',
+};
+
+const SOCIAL_LINKS = [
+    { href: 'https://github.com/quanta-naut/peargent', icon: Github, title: 'GitHub' },
+    { href: 'https://peargent.online/socials', icon: TreeDeciduous, title: 'Socials' },
+];
+
+// Utility Functions
+const createToolNodes = (tools: any[] | undefined, parentId: string): TreeNode[] =>
+    tools?.map((tool, idx) => ({
+        id: `${parentId}-tool-${idx}`,
+        label: tool.name,
+        type: 'tool' as const,
+        icon: Wrench,
+    })) || [];
+
+const createAgentNode = (agent: any, agentId: string): TreeNode => {
+    const children: TreeNode[] = createToolNodes(agent.tools, agentId);
+
+    // Add history node if the agent has history
+    if (agent.history) {
+        children.push({
+            id: `${agentId}-history`,
+            label: 'History',
+            type: 'history' as const,
+            icon: History,
+        });
+    }
+
+    return {
+        id: agentId,
+        label: agent.name,
+        type: 'agent',
+        children,
+        icon: Bot,
+    };
+};
+
+const getAllNodeIds = (node: TreeNode): string[] => {
+    const ids = [node.id];
+    node.children?.forEach(child => ids.push(...getAllNodeIds(child)));
+    return ids;
+};
+
+const filterTree = (node: TreeNode, query: string): TreeNode | null => {
+    const matchesSelf = node.label.toLowerCase().includes(query.toLowerCase());
+    const filteredChildren = node.children
+        ?.map(child => filterTree(child, query))
+        .filter((child): child is TreeNode => child !== null) || [];
+
+    if (matchesSelf || filteredChildren.length > 0) {
+        return { ...node, children: filteredChildren };
+    }
+    return null;
+};
+
+const buildTree = (json: any): TreeNode => {
+    if (json.type === 'pool') {
+        const children: TreeNode[] = [];
+
+        if (json.data.router) {
+            children.push({
+                id: 'router-main',
+                label: json.data.router.name,
+                type: 'router',
+                icon: Network,
+            });
+        }
+
+        json.data.agents?.forEach((agent: any, idx: number) => {
+            children.push(createAgentNode(agent, `agent-${idx}`));
+        });
+
+        // Add pool-level history node if exists
+        if (json.data.history) {
+            children.push({
+                id: 'pool-history',
+                label: 'History',
+                type: 'history' as const,
+                icon: History,
+            });
+        }
+
+        return {
+            id: 'root',
+            label: 'Agent Pool',
+            type: 'pool',
+            children,
+            icon: Database,
+        };
+    }
+
+    if (json.type === 'collection') {
+        const children = json.data.agents?.map((agent: any, idx: number) =>
+            createAgentNode(agent, `agent-${idx}`)
+        ) || [];
+
+        return {
+            id: 'root-collection',
+            label: 'Agent Collection',
+            type: 'collection',
+            children,
+            icon: Box,
+        };
+    }
+
+    if (json.type === 'agent') {
+        return {
+            id: 'agent-root',
+            label: json.data.name,
+            type: 'agent',
+            children: createToolNodes(json.data.tools, 'agent-root'),
+            icon: Bot,
+        };
+    }
+
+    return { id: 'unknown', label: 'Unknown', type: 'collection', children: [] };
+};
+
+
+
+const SocialLinks = ({ withHoverEffect = false, vertical = false }: { withHoverEffect?: boolean; vertical?: boolean }) => (
+    <div className={cn("flex items-center gap-4 pt-2", vertical && "flex-col")}>
+        {SOCIAL_LINKS.map(({ href, icon: Icon, title }) => (
+            <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors group relative"
+                title={title}
+            >
+                {withHoverEffect && (
+                    <div className="absolute inset-0 bg-white/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                )}
+                <Icon className={cn("relative z-10", withHoverEffect ? "w-5 h-5" : "w-4.5 h-4.5")} />
+            </a>
+        ))}
+    </div>
+);
+
+const Footer = ({ collapsed }: { collapsed: boolean }) => (
+    <div className={cn(
+        "mt-auto relative z-10 w-full bg-gradient-to-t from-background to-background/50 backdrop-blur-sm border-t border-sidebar-border hidden md:flex flex-col",
+        collapsed && "items-center"
+    )}>
+        {!collapsed && (
+            <div className="flex items-center justify-between px-6 py-4">
+                <SocialLinks withHoverEffect />
+                <ThemeToggle className="border-none bg-transparent p-0" />
+            </div>
+        )}
+        {collapsed && (
+            <div className="py-4 flex flex-col items-center gap-4">
+                <SocialLinks vertical />
+                <ThemeToggle className="border-none bg-transparent p-0" />
+            </div>
+        )}
+        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full" />
+    </div>
+);
+
+const MobileHeader = ({ onClose }: { onClose?: () => void }) => (
+    <div className="flex items-center justify-between mb-2 mt-2 mx-2 md:hidden">
+        <SocialLinks />
+        <div className="flex items-center gap-2">
+            <ThemeToggle className="border-none bg-transparent p-0" />
+            {onClose && (
+                <button
+                    onClick={onClose}
+                    className="p-2 -mr-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <PanelLeft className="w-5 h-5" />
+                </button>
+            )}
+        </div>
+    </div>
+);
+
+const EmptyState = () => (
+    <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 opacity-50">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+            <Database className="w-6 h-6 text-muted-foreground" />
+        </div>
+        <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">No Data</p>
+            <p className="text-xs text-muted-foreground">Import a file to view structure</p>
+        </div>
+    </div>
+);
+
+// Main Component
+
+export default function AtlasSidebar({
+    data,
+    selectedId,
+    onSelect,
+    className,
+    isCollapsed = false,
+    onClose,
+    onToggleCollapse
+}: SidebarProps & { isCollapsed?: boolean }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
+    const [width, setWidth] = useState(DEFAULT_WIDTH);
+    const [isResizing, setIsResizing] = useState(false);
 
-    const treeData = useMemo(() => {
-        if (!data) return null;
-
-        const buildTree = (json: any): TreeNode => {
-            // Handle Pool
-            if (json.type === 'pool') {
-                const children: TreeNode[] = [];
-
-                // Router
-                if (json.data.router) {
-                    children.push({
-                        id: 'router-main',
-                        label: json.data.router.name || 'Router',
-                        type: 'router',
-                        icon: Network
-                    });
-                }
-
-                // Agents
-                if (json.data.agents) {
-                    json.data.agents.forEach((agent: any, idx: number) => {
-                        const agentId = `agent-${idx}`;
-                        const tools = agent.tools?.map((tool: any, tIdx: number) => ({
-                            id: `${agentId}-tool-${tIdx}`,
-                            label: tool.name,
-                            type: 'tool',
-                            icon: Wrench
-                        })) || [];
-
-                        children.push({
-                            id: agentId,
-                            label: agent.name,
-                            type: 'agent',
-                            children: tools,
-                            icon: Bot
-                        });
-                    });
-                }
-
-                return {
-                    id: 'pool-root',
-                    label: json.data.name || 'Agent Pool',
-                    type: 'pool',
-                    children,
-                    icon: Database
-                };
-            }
-
-            // Handle Collection
-            if (json.type === 'collection') {
-                const children: TreeNode[] = [];
-                if (json.data.agents) {
-                    json.data.agents.forEach((agent: any, idx: number) => {
-                        const agentId = `agent-${idx}`;
-                        const tools = agent.tools?.map((tool: any, tIdx: number) => ({
-                            id: `${agentId}-tool-${tIdx}`,
-                            label: tool.name,
-                            type: 'tool',
-                            icon: Wrench
-                        })) || [];
-
-                        children.push({
-                            id: agentId,
-                            label: agent.name,
-                            type: 'agent',
-                            children: tools,
-                            icon: Bot
-                        });
-                    });
-                }
-                return {
-                    id: 'root-collection',
-                    label: 'Agent Collection',
-                    type: 'collection',
-                    children,
-                    icon: Box
-                };
-            }
-
-            // Handle Single Agent
-            if (json.type === 'agent') {
-                const agentId = 'agent-root';
-                const tools = json.data.tools?.map((tool: any, tIdx: number) => ({
-                    id: `${agentId}-tool-${tIdx}`,
-                    label: tool.name,
-                    type: 'tool',
-                    icon: Wrench
-                })) || [];
-
-                return {
-                    id: agentId,
-                    label: json.data.name,
-                    type: 'agent',
-                    children: tools,
-                    icon: Bot
-                };
-            }
-
-            return { id: 'unknown', label: 'Unknown', type: 'collection', children: [] };
-        };
-
-        return buildTree(data);
-    }, [data]);
-
-    // Recursive search filter
-    const filterTree = (node: TreeNode, query: string): TreeNode | null => {
-        const matchesSelf = node.label.toLowerCase().includes(query.toLowerCase());
-
-        let filteredChildren: TreeNode[] = [];
-        if (node.children) {
-            filteredChildren = node.children
-                .map(child => filterTree(child, query))
-                .filter((child): child is TreeNode => child !== null);
-        }
-
-        if (matchesSelf || filteredChildren.length > 0) {
-            return { ...node, children: filteredChildren };
-        }
-        return null;
-    };
+    const treeData = useMemo(() => data ? buildTree(data) : null, [data]);
 
     const filteredData = useMemo(() => {
         if (!treeData) return null;
@@ -152,33 +251,47 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
         return filterTree(treeData, searchQuery);
     }, [treeData, searchQuery]);
 
-    const toggleNode = (id: string) => {
-        const newSet = new Set(expandedNodes);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
-        }
-        setExpandedNodes(newSet);
-    };
+    const toggleNode = useCallback((id: string) => {
+        setExpandedNodes(prev => {
+            const newSet = new Set(prev);
+            newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+            return newSet;
+        });
+    }, []);
 
-    // Auto-expand all by default and on search
+    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+        if (isCollapsed) return;
+        e.preventDefault();
+        setIsResizing(true);
+
+        const startX = e.clientX;
+        const startWidth = width;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const delta = e.clientX - startX;
+            const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta));
+            setWidth(newWidth);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    }, [width, isCollapsed]);
+
+    // Auto-expand nodes on data change or search
     useEffect(() => {
         const dataToExpand = searchQuery ? filteredData : treeData;
         if (dataToExpand) {
-            const getAllIds = (node: TreeNode): string[] => {
-                let ids = [node.id];
-                if (node.children) {
-                    node.children.forEach(child => ids.push(...getAllIds(child)));
-                }
-                return ids;
-            };
-            setExpandedNodes(new Set(getAllIds(dataToExpand)));
+            setExpandedNodes(new Set(getAllNodeIds(dataToExpand)));
         }
     }, [treeData, filteredData, searchQuery]);
 
-
-    const renderTree = (node: TreeNode, depth = 0) => {
+    const renderTree = useCallback((node: TreeNode, depth = 0) => {
         const isExpanded = expandedNodes.has(node.id);
         const hasChildren = node.children && node.children.length > 0;
         const Icon = node.icon || Box;
@@ -189,7 +302,7 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
                 <div
                     className={cn(
                         "flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer transition-colors text-sm",
-                        isSelected ? "bg-white/10 text-foreground font-medium" : "hover:bg-white/5",
+                        isSelected ? "bg-sidebar-accent text-foreground font-medium" : "hover:bg-white/5",
                         depth === 0 && !isSelected && "font-semibold text-foreground",
                         depth > 0 && !isSelected && "text-muted-foreground hover:text-foreground"
                     )}
@@ -203,20 +316,13 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
                         )}
                         onClick={(e) => {
                             e.stopPropagation();
-                            toggleNode(node.id);
+                            if (hasChildren) toggleNode(node.id);
                         }}
                     >
-                        {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     </span>
 
-                    <Icon className={cn(
-                        "w-4 h-4",
-                        node.type === 'pool' && "text-emerald-500",
-                        node.type === 'router' && "text-purple-500",
-                        node.type === 'agent' && "text-blue-500",
-                        node.type === 'tool' && "text-amber-500",
-                    )} />
-
+                    <Icon className={cn("w-4 h-4", TYPE_COLORS[node.type])} />
                     <span className="truncate">{node.label}</span>
                 </div>
 
@@ -234,166 +340,111 @@ export default function AtlasSidebar({ data, selectedId, onSelect, className, hi
                 </AnimatePresence>
             </div>
         );
-    };
+    }, [expandedNodes, selectedId, onSelect, toggleNode]);
 
-    if (!treeData) {
-        return (
-            <div className={cn("w-[300px] flex flex-col border-r border-sidebar-border bg-sidebar backdrop-blur-xl h-full", className)}>
-                <div className="px-5 py-2 border-b border-sidebar-border mb-4">
-                    <div className="flex items-center justify-between mb-2 mt-2 mx-2 md:hidden ">
-                        <div className="flex items-center gap-3 ">
-                            <a href="https://github.com/quanta-naut/peargent" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="GitHub">
-                                <Github className="w-4.5 h-4.5" />
-                            </a>
-                            <a href="https://peargent.online/socials" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="Socials">
-                                <TreeDeciduous className="w-4.5 h-4.5" />
-                            </a>
-                            {/* <button className="text-muted-foreground hover:text-foreground transition-colors group relative" title="Settings">
-                                <Settings className="w-4.5 h-4.5" />
-                            </button> */}
-                        </div>
-                        {onClose && (
-                            <button
-                                onClick={onClose}
-                                className="p-2 -mr-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                <PanelLeft className="w-4.5 h-4.5" />
-                            </button>
-                        )}
-                    </div>
-                    {!hideLogo && (
-                        <div className="">
-                            <span className="font-semibold text-foreground" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '2.1rem' }}>
-                                peargent<span className="text-primary">.</span>
-                            </span>
-                            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium pl-0.5">Atlas</span>
-                        </div>
-                    )}
-                    <div className={cn("mt-4 mb-2 h-9 bg-white/5 rounded-lg w-full opacity-50", !hideLogo ? "" : "mt-0")} />
-                </div>
-                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 opacity-50">
-                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
-                        <Database className="w-6 h-6 text-muted-foreground" />
-                    </div>
-                    <div className="space-y-1">
-                        <p className="text-sm font-medium text-foreground">No Data</p>
-                        <p className="text-xs text-muted-foreground">Import a file to view structure</p>
-                    </div>
-                </div>
-
-                {/* Footer Stat (Hidden on mobile) */}
-                <div className="mt-auto relative z-10 w-full bg-gradient-to-t from-background to-background/50 backdrop-blur-sm border-t border-sidebar-border hidden md:flex flex-col">
-                    {/* Icons Row */}
-                    <div className="flex items-center justify-between px-6 py-4">
-                        <div className="flex items-center gap-4">
-                            <a href="https://github.com/quanta-naut/peargent" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="GitHub">
-                                <div className="absolute inset-0 bg-white/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                <Github className="w-5 h-5 relative z-10" />
-                            </a>
-                            <a href="https://peargent.online/socials" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="Socials">
-                                <div className="absolute inset-0 bg-white/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                <TreeDeciduous className="w-5 h-5 relative z-10" />
-                            </a>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <ThemeToggle className="border-none bg-transparent p-0" />
-                        </div>
-                    </div>
-                    {/* Divider */}
-                    <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full" />
-                </div>
-
-
-            </div>
-        )
-    }
+    const hasNoResults = !filteredData || (filteredData.children?.length === 0 && searchQuery);
 
     return (
-        <div className={cn("w-[300px] flex flex-col border-r border-sidebar-border bg-background backdrop-blur-xl h-full", className)}>
-            {/* Header / Search */}
-            <div className="px-5 py-2 border-b border-sidebar-border mb-4">
-                <div className="flex items-center justify-between mb-2 mt-2 mx-2 md:hidden ">
-                    <div className="flex items-center gap-3">
-                        <a href="https://github.com/quanta-naut/peargent" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="GitHub">
-                            <Github className="w-5 h-5" />
-                        </a>
-                        <a href="https://peargent.online/socials" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="Socials">
-                            <TreeDeciduous className="w-5 h-5" />
-                        </a>
+        <div
+            style={{ width: isCollapsed ? COLLAPSED_WIDTH : width }}
+            className={cn(
+                "flex flex-col border-r border-sidebar-border bg-background backdrop-blur-xl h-full relative shrink-0 transition-[width] duration-200",
+                isResizing && "select-none transition-none",
+                className
+            )}
+        >
+            {/* Resize Handle */}
+            {!isCollapsed && (
+                <div
+                    onMouseDown={handleMouseDown}
+                    className={cn(
+                        "absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize group hover:bg-primary/20 transition-colors z-10",
+                        isResizing && "bg-primary/30"
+                    )}
+                >
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <GripVertical className="w-3 h-3 text-muted-foreground" />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <ThemeToggle className="border-none bg-transparent p-0" />
-                        {onClose && (
-                            <button
-                                onClick={onClose}
-                                className="p-2 -mr-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                <PanelLeft className="w-5 h-5" />
-                            </button>
+                </div>
+            )}
+
+            {/* Header - Only Mobile now */}
+            <div className={cn(
+                "flex md:hidden",
+                isCollapsed ? "justify-center pt-4" : "px-5 py-1 mb-4"
+            )}>
+                <MobileHeader onClose={onClose} />
+            </div>
+
+            {/* Desktop Spacer if expanding? No, header is gone. Just start content. */}
+
+            {/* Content */}
+            {isCollapsed ? (
+                <div className="flex-1 flex flex-col items-center pt-4 gap-2">
+                    <button
+                        onClick={onToggleCollapse}
+                        className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors hidden md:block mb-2"
+                        title="Expand sidebar"
+                    >
+                        <PanelLeft className="w-5 h-5" />
+                    </button>
+
+                    {treeData && (
+                        <div className="p-2 rounded-lg bg-emerald-500/10">
+                            <Database className="w-4 h-4 text-emerald-500" />
+                        </div>
+                    )}
+                </div>
+            ) : !treeData ? (
+                <div className="flex-1 flex flex-col">
+                    <div className="hidden md:flex justify-end p-2">
+                        <button
+                            onClick={onToggleCollapse}
+                            className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+                            title="Collapse sidebar"
+                        >
+                            <PanelLeftClose className="w-5 h-5" />
+                        </button>
+                    </div>
+                    <EmptyState />
+                </div>
+            ) : (
+                <>
+                    {/* Search & Toggle */}
+                    <div className="flex items-center gap-2 px-5 mb-2 mt-4">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground z-10" />
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-background/50 border border-sidebar-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-muted-foreground/50"
+                            />
+                        </div>
+                        <button
+                            onClick={onToggleCollapse}
+                            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors hidden md:block"
+                            title="Collapse sidebar"
+                        >
+                            <PanelLeftClose className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    {/* Tree */}
+                    <div className="flex-1 overflow-y-auto p-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {hasNoResults ? (
+                            <div className="p-4 text-center text-xs text-muted-foreground">
+                                No results found for "{searchQuery}"
+                            </div>
+                        ) : (
+                            renderTree(filteredData!)
                         )}
                     </div>
-                </div>
-                {!hideLogo && (
-                    <div className="">
-                        <span className="font-semibold text-foreground" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '2.1rem' }}>
-                            peargent<span className="text-primary">.</span>
-                        </span>
-                        <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-medium pl-0.5">Atlas</span>
-                    </div>
-                )}
-            </div>
-            <div className="relative px-5 mb-2">
-                <Search className="absolute left-7 top-2.5 w-4 h-4 text-muted-foreground z-10" />
-                <input
-                    type="text"
-                    placeholder="Search agents, tools..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-background/50 border border-sidebar-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-muted-foreground/50"
-                />
-            </div>
+                </>
+            )}
 
-            {/* Tree */}
-            <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                {/* Render tree or empty search state */}
-                {filteredData ? (
-                    renderTree(filteredData)
-                ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
-                        No results found for "{searchQuery}"
-                    </div>
-                )}
-
-                {filteredData && filteredData.children && filteredData.children.length === 0 && searchQuery && (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
-                        No results found for "{searchQuery}"
-                    </div>
-                )}
-            </div>
-
-            {/* Footer Stat (Hidden on mobile) */}
-            <div className="mt-auto relative z-10 w-full bg-gradient-to-t from-background to-background/50 backdrop-blur-sm border-t border-sidebar-border hidden md:flex flex-col">
-                {/* Icons Row */}
-                <div className="flex items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-4">
-                        <a href="https://github.com/quanta-naut/peargent" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="GitHub">
-                            <div className="absolute inset-0 bg-white/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <Github className="w-5 h-5 relative z-10" />
-                        </a>
-                        <a href="https://peargent.online/socials" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors group relative" title="Socials">
-                            <div className="absolute inset-0 bg-white/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                            <TreeDeciduous className="w-5 h-5 relative z-10" />
-                        </a>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <ThemeToggle className="border-none bg-transparent p-0" />
-                    </div>
-                </div>
-                {/* Divider */}
-                <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent w-full" />
-            </div>
-
-
+            <Footer collapsed={isCollapsed} />
         </div>
     );
 }

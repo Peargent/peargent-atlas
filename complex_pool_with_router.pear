@@ -1,0 +1,333 @@
+{
+  "meta": {
+    "version": "0.1.0",
+    "generated_at": "2025-12-26T13:30:20.543843+00:00",
+    "library_version": "0.1.4"
+  },
+  "type": "pool",
+  "data": {
+    "type": "pool",
+    "agents": [
+      {
+        "name": "Research_Analyst",
+        "description": "Conducts deep research and data analysis.",
+        "persona": "You are a senior research analyst with over 20 years of experience in data science and academic research. \nYour goal is to uncover deep insights from vast amounts of information. You are meticulous, detail-oriented, and skeptical of unverified claims. \nYou always cite your sources and prefer to cross-reference data points before forming a conclusion. \nWhen asked a question, you first break it down into sub-components, investigate each thoroughly, and then synthesize your findings into a comprehensive report.\nYou utilize advanced search techniques and data analysis tools to ensure accuracy.",
+        "type": "agent",
+        "model": {
+          "type": "GroqModel",
+          "model_name": "groq/llama-3.2-70b-instruct"
+        },
+        "tools": [
+          {
+            "name": "search_web",
+            "description": "Searches the web for information about a given query.",
+            "input_parameters": {
+              "query": "str"
+            },
+            "source_code": "@create_tool(name=\"search_web\", description=\"Searches the web for information about a given query.\")\ndef search_web(query: str) -> str:\n    return f\"Results for {query}\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "read_file",
+            "description": "Reads the content of a file from the local filesystem.",
+            "input_parameters": {
+              "path": "str"
+            },
+            "source_code": "@create_tool(name=\"read_file\", description=\"Reads the content of a file from the local filesystem.\")\ndef read_file(path: str) -> str:\n    return \"File content\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "analyze_data",
+            "description": "Analyzes a dataset and provides insights.",
+            "input_parameters": {
+              "dataset": "str"
+            },
+            "source_code": "@create_tool(name=\"analyze_data\", description=\"Analyzes a dataset and provides insights.\")\ndef analyze_data(dataset: str) -> str:\n    return \"Analysis results\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          }
+        ],
+        "stop_conditions": {
+          "type": "StepLimitCondition",
+          "description": "<peargent._core.stopping.StepLimitCondition object at 0x00000201E01DA8D0>",
+          "max_steps": 5
+        },
+        "history": null,
+        "auto_manage_context": false,
+        "max_context_messages": 20,
+        "context_strategy": "smart",
+        "summarize_model": null,
+        "tracing": false,
+        "output_schema": null,
+        "max_retries": 3
+      },
+      {
+        "name": "Chief_Editor",
+        "description": "Reviews and refines content.",
+        "persona": "You are the Chief Editor of a prestigious technology publication. You have an eagle eye for grammatical errors, stylistic inconsistencies, and tonal mismatches.\nYour job is to ensure that every piece of content produced is polished, professional, and engaging. \nYou value clarity and conciseness above all else. You are not afraid to rewrite entire sections if they fail to meet your high standards.\nYou believe that good writing is not just about correct grammar, but about compelling storytelling and logical flow.\nYou are tasked with refining raw drafts into masterpieces.",
+        "type": "agent",
+        "model": {
+          "type": "GroqModel",
+          "model_name": "groq/llama-3.2-70b-instruct"
+        },
+        "tools": [
+          {
+            "name": "summarize_text",
+            "description": "Summarizes a long piece of text into a concise summary.",
+            "input_parameters": {
+              "text": "str"
+            },
+            "source_code": "@create_tool(name=\"summarize_text\", description=\"Summarizes a long piece of text into a concise summary.\")\ndef summarize_text(text: str) -> str:\n    return \"Summary\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "translate_text",
+            "description": "Translates text from one language to another.",
+            "input_parameters": {
+              "text": "str",
+              "target_language": "str"
+            },
+            "source_code": "@create_tool(name=\"translate_text\", description=\"Translates text from one language to another.\")\ndef translate_text(text: str, target_language: str) -> str:\n    return \"Translated text\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "write_file",
+            "description": "Writes content to a file in the local filesystem.",
+            "input_parameters": {
+              "path": "str",
+              "content": "str"
+            },
+            "source_code": "@create_tool(name=\"write_file\", description=\"Writes content to a file in the local filesystem.\")\ndef write_file(path: str, content: str) -> bool:\n    return True\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          }
+        ],
+        "stop_conditions": {
+          "type": "StepLimitCondition",
+          "description": "<peargent._core.stopping.StepLimitCondition object at 0x00000201E01DBC10>",
+          "max_steps": 5
+        },
+        "history": null,
+        "auto_manage_context": false,
+        "max_context_messages": 20,
+        "context_strategy": "smart",
+        "summarize_model": null,
+        "tracing": false,
+        "output_schema": null,
+        "max_retries": 3
+      },
+      {
+        "name": "Lead_Developer",
+        "description": "Writes and executes code.",
+        "persona": "You are a 10x Full Stack Developer and Systems Architect. You live and breathe code. \nYou are proficient in Python, TypeScript, Rust, and Go. You care deeply about clean architecture, SOLID principles, and performance optimization.\nYou are pragmatic but insist on high-quality implementations. You are often called upon to solve the most complex technical challenges that stump others.\nWhen writing code, you always include error handling, type definitions, and comprehensive documentation.\nYou prefer automation over manual toil and always look for ways to optimize workflows.",
+        "type": "agent",
+        "model": {
+          "type": "GroqModel",
+          "model_name": "groq/llama-3.2-70b-instruct"
+        },
+        "tools": [
+          {
+            "name": "execute_python",
+            "description": "Executes a Python script in a sandboxed environment.",
+            "input_parameters": {
+              "script": "str"
+            },
+            "source_code": "@create_tool(name=\"execute_python\", description=\"Executes a Python script in a sandboxed environment.\")\ndef execute_python(script: str) -> str:\n    return \"Execution result\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "query_database",
+            "description": "Executes a SQL query against the connected database.",
+            "input_parameters": {
+              "query": "str"
+            },
+            "source_code": "@create_tool(name=\"query_database\", description=\"Executes a SQL query against the connected database.\")\ndef query_database(query: str) -> str:\n    return \"Query result\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "read_file",
+            "description": "Reads the content of a file from the local filesystem.",
+            "input_parameters": {
+              "path": "str"
+            },
+            "source_code": "@create_tool(name=\"read_file\", description=\"Reads the content of a file from the local filesystem.\")\ndef read_file(path: str) -> str:\n    return \"File content\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          }
+        ],
+        "stop_conditions": {
+          "type": "StepLimitCondition",
+          "description": "<peargent._core.stopping.StepLimitCondition object at 0x00000201E0214210>",
+          "max_steps": 5
+        },
+        "history": null,
+        "auto_manage_context": false,
+        "max_context_messages": 20,
+        "context_strategy": "smart",
+        "summarize_model": null,
+        "tracing": false,
+        "output_schema": null,
+        "max_retries": 3
+      },
+      {
+        "name": "Creative_Director",
+        "description": "Generates assets and visual concepts.",
+        "persona": "You are a Visionary Creative Director with a background in fine arts and digital design.\nYou see the world in colors, shapes, and emotions. Your mission is to bring abstract concepts to life through visual media.\nYou are highly intuitive and empathetic, often understanding the user's emotional needs better than they do themselves.\nYou encourage bold experimentation and are never satisfied with the status quo. \nYou use generative AI tools as an extension of your artistic capability to act as a force multiplier for your imagination.",
+        "type": "agent",
+        "model": {
+          "type": "GroqModel",
+          "model_name": "groq/llama-3.2-70b-instruct"
+        },
+        "tools": [
+          {
+            "name": "generate_image",
+            "description": "Generates an image based on a text prompt.",
+            "input_parameters": {
+              "prompt": "str"
+            },
+            "source_code": "@create_tool(name=\"generate_image\", description=\"Generates an image based on a text prompt.\")\ndef generate_image(prompt: str) -> str:\n    return \"image_url\"\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "send_email",
+            "description": "Sends an email to a recipient with a subject and body.",
+            "input_parameters": {
+              "recipient": "str",
+              "subject": "str",
+              "body": "str"
+            },
+            "source_code": "@create_tool(name=\"send_email\", description=\"Sends an email to a recipient with a subject and body.\")\ndef send_email(recipient: str, subject: str, body: str) -> bool:\n    return True\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          },
+          {
+            "name": "schedule_meeting",
+            "description": "Schedules a meeting on the user's calendar.",
+            "input_parameters": {
+              "title": "str",
+              "time": "str"
+            },
+            "source_code": "@create_tool(name=\"schedule_meeting\", description=\"Schedules a meeting on the user's calendar.\")\ndef schedule_meeting(title: str, time: str) -> bool:\n    return True\n",
+            "timeout": null,
+            "max_retries": 0,
+            "retry_delay": 1.0,
+            "retry_backoff": true,
+            "on_error": "raise",
+            "output_schema": null,
+            "type": "tool"
+          }
+        ],
+        "stop_conditions": {
+          "type": "StepLimitCondition",
+          "description": "<peargent._core.stopping.StepLimitCondition object at 0x00000201E0214810>",
+          "max_steps": 5
+        },
+        "history": null,
+        "auto_manage_context": false,
+        "max_context_messages": 20,
+        "context_strategy": "smart",
+        "summarize_model": null,
+        "tracing": false,
+        "output_schema": null,
+        "max_retries": 3
+      }
+    ],
+    "router": {
+      "type": "routing_agent",
+      "name": "Orchestrator",
+      "persona": "You are the Master Orchestrator. Your role is to understand user requests and delegate them to the most appropriate specialist agent.\nYou verify the input, clarify ambiguities, and ensure that the chosen agent has the necessary context to succeed.\nYou do not perform the work yourself; you manage the team of experts.",
+      "description": "Routing agent that decides which agent should act next from: Research_Analyst, Chief_Editor, Lead_Developer, Creative_Director",
+      "model": {
+        "type": "GroqModel",
+        "model_name": "groq/llama-3.2-70b-instruct"
+      },
+      "agents": [
+        "Research_Analyst",
+        "Chief_Editor",
+        "Lead_Developer",
+        "Creative_Director"
+      ],
+      "stop_conditions": {
+        "type": "StepLimitCondition",
+        "description": "<peargent._core.stopping.StepLimitCondition object at 0x00000201E0214ED0>",
+        "max_steps": 5
+      }
+    },
+    "max_iter": 10,
+    "agent_names": [
+      "Research_Analyst",
+      "Chief_Editor",
+      "Lead_Developer",
+      "Creative_Director"
+    ],
+    "default_model": null,
+    "history": {
+      "type": "ConversationHistory",
+      "current_thread_id": null,
+      "store_type": "SQLiteHistoryStore"
+    },
+    "tracing": false
+  }
+}

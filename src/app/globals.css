@@ -17,11 +17,11 @@
 
   --text: hsl(0 0% 10%);
 
-  --secondary: hsl(84, 41%, 92%); /* Very light pear green */
-  --secondary-foreground: hsl(84, 41%, 30%);
+  --secondary: hsl(0, 0%, 90%); /* Very light pear green */
+  --secondary-foreground: hsl(0, 0%, 30%);
 
-  --accent: hsl(84, 41%, 96%); /* Subtle pear tint */
-  --accent-foreground: hsl(84, 41%, 40%);
+  --accent: hsl(0, 0%, 87%); /* Subtle pear tint */
+  --accent-foreground: hsl(0, 0%, 40%);
 
   /* Destructive */
   --destructive: hsl(0 84.2% 60.2%);
