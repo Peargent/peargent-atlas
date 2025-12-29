@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, GripVertical, History } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, GripVertical, History, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -12,6 +12,8 @@ interface SidebarProps {
     className?: string;
     onClose?: () => void;
     onToggleCollapse?: () => void;
+    projectName?: string;
+    onProjectNameChange?: (name: string) => void;
 }
 
 interface TreeNode {
@@ -236,7 +238,9 @@ export default function AtlasSidebar({
     className,
     isCollapsed = false,
     onClose,
-    onToggleCollapse
+    onToggleCollapse,
+    projectName,
+    onProjectNameChange
 }: SidebarProps & { isCollapsed?: boolean }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
@@ -381,14 +385,6 @@ export default function AtlasSidebar({
             {/* Content */}
             {isCollapsed ? (
                 <div className="flex-1 flex flex-col items-center pt-4 gap-2">
-                    <button
-                        onClick={onToggleCollapse}
-                        className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors hidden md:block mb-2"
-                        title="Expand sidebar"
-                    >
-                        <PanelLeft className="w-5 h-5" />
-                    </button>
-
                     {treeData && (
                         <div className="p-2 rounded-lg bg-emerald-500/10">
                             <Database className="w-4 h-4 text-emerald-500" />
@@ -397,21 +393,29 @@ export default function AtlasSidebar({
                 </div>
             ) : !treeData ? (
                 <div className="flex-1 flex flex-col">
-                    <div className="hidden md:flex justify-end p-2">
-                        <button
-                            onClick={onToggleCollapse}
-                            className="p-1.5 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
-                            title="Collapse sidebar"
-                        >
-                            <PanelLeftClose className="w-5 h-5" />
-                        </button>
-                    </div>
                     <EmptyState />
                 </div>
             ) : (
                 <>
-                    {/* Search & Toggle */}
-                    <div className="flex items-center gap-2 px-5 mb-2 mt-4">
+                    {/* Project Name */}
+                    {onProjectNameChange && (
+                        <div className="px-5 pt-4 pb-2">
+                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground/60 mb-1.5 block">Project Name</label>
+                            <div className="relative group">
+                                <input
+                                    type="text"
+                                    value={projectName || ''}
+                                    onChange={(e) => onProjectNameChange(e.target.value)}
+                                    placeholder="Untitled Project"
+                                    className="w-full bg-transparent border-b border-border/50 focus:border-primary py-1.5 text-base font-medium text-foreground focus:outline-none transition-colors placeholder:text-muted-foreground/50"
+                                />
+                                <Pencil className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Search */}
+                    <div className="flex items-center gap-2 px-5 mb-2 mt-2">
                         <div className="relative flex-1">
                             <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground z-10" />
                             <input
@@ -422,13 +426,7 @@ export default function AtlasSidebar({
                                 className="w-full bg-background/50 border border-sidebar-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-muted-foreground/50"
                             />
                         </div>
-                        <button
-                            onClick={onToggleCollapse}
-                            className="p-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors hidden md:block"
-                            title="Collapse sidebar"
-                        >
-                            <PanelLeftClose className="w-5 h-5" />
-                        </button>
+
                     </div>
 
                     {/* Tree */}

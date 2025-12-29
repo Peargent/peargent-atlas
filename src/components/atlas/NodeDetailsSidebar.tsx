@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X, Bot, Network, Database, Wrench, Code, Settings, RefreshCw, AlertCircle, FileCode, List, Type, User, Brain, GripVertical, History, MessageSquare } from 'lucide-react';
+import { X, Bot, Network, Database, Wrench, Code, Settings, RefreshCw, AlertCircle, FileCode, List, Type, User, Brain, GripVertical, History, MessageSquare, PanelRightClose, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { EditableField, FIELD_OPTIONS } from '@/components/ui/EditableField';
@@ -11,6 +11,8 @@ interface NodeDetailsSidebarProps {
     nodeType: 'agent' | 'router' | 'tool' | 'pool' | 'history' | null;
     onClose: () => void;
     onUpdate?: (updatedNode: any) => void;
+    onWidthChange?: (width: number) => void;
+    onToggle?: () => void;
     className?: string;
 }
 
@@ -224,7 +226,10 @@ const RouterDetails = ({ data, onChange }: { data: any; onChange: (field: string
 );
 
 // Pool Details with editable fields
-const PoolDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => (
+const PoolDetails = ({ data, onChange }: {
+    data: any;
+    onChange: (field: string, value: any) => void;
+}) => (
     <div className="space-y-6">
         <Section title="Pool Configuration" icon={Settings} color="text-emerald-400">
             <EditableField label="Max Iterations" value={data.max_iter} type="number" onChange={(v) => onChange('max_iter', v)} mono placeholder="5" color="text-emerald-400" />
@@ -272,16 +277,20 @@ const TYPE_CONFIG = {
     history: { icon: History, color: 'text-pink-400', bgColor: 'bg-gradient-to-br from-pink-500 to-rose-600', label: 'History' },
 };
 
-export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, className }: NodeDetailsSidebarProps) {
+export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, onWidthChange, onToggle, className }: NodeDetailsSidebarProps) {
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isResizing, setIsResizing] = useState(false);
     const [localNode, setLocalNode] = useState(node);
 
     // Sync local node with prop changes
-    // Sync local node with prop changes
     useEffect(() => {
         setLocalNode(node);
     }, [node]);
+
+    // Report width changes to parent
+    useEffect(() => {
+        onWidthChange?.(width);
+    }, [width, onWidthChange]);
 
     // Scroll reset ref
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -358,7 +367,7 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
             initial={{ x: width }}
             animate={{ x: 0 }}
             exit={{ x: width }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
             style={{ width }}
             className={cn(
                 "h-full border-l border-border bg-background/95 backdrop-blur-xl flex flex-col shrink-0",
@@ -379,6 +388,17 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                 </div>
             </div>
 
+            {/* Collapse Toggle - positioned outside at left edge */}
+            {onToggle && (
+                <button
+                    onClick={onToggle}
+                    className="absolute top-4 -left-12 p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5 hidden md:block"
+                    title="Collapse Sidebar"
+                >
+                    <PanelRightClose className="w-5 h-5" />
+                </button>
+            )}
+
             {/* Header */}
             <div className="p-4 border-b border-border flex items-center justify-between bg-card/50">
                 <div className="flex items-center gap-3">
@@ -394,12 +414,6 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                         </span>
                     </div>
                 </div>
-                <button
-                    onClick={onClose}
-                    className="p-2 rounded-lg hover:bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                    <X className="w-5 h-5" />
-                </button>
             </div>
 
             {/* Content */}

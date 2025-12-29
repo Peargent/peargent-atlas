@@ -43,7 +43,8 @@ export function PoolNode({ data }: NodeProps) {
 
             {/* Base Connector Layer */}
             <div className="absolute inset-0 pointer-events-none z-50">
-                <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-teal-500 !border-2 !border-background z-50 pointer-events-auto" />
+                <Handle type="target" position={Position.Left} id="pool-left-target" className="!w-3 !h-3 !bg-purple-500 !border-2 !border-background z-50 pointer-events-auto" style={{ top: '50%' }} />
+                <Handle type="source" position={Position.Bottom} id="pool-bottom-source" className="!w-3 !h-3 !bg-teal-500 !border-2 !border-background z-50 pointer-events-auto" />
                 <Handle type="source" position={Position.Right} id="right-history-source" className="!w-3 !h-3 !bg-pink-500 !border-2 !border-background z-50 pointer-events-auto" style={{ top: '50%' }} />
             </div>
 
@@ -95,8 +96,7 @@ export function RouterNode({ data }: NodeProps) {
 
             {/* Base Connector Layer */}
             <div className="absolute inset-0 pointer-events-none z-50">
-                <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-purple-500 !border-2 !border-background z-50 pointer-events-auto" />
-                <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-pink-500 !border-2 !border-background z-50 pointer-events-auto" />
+                <Handle type="source" position={Position.Right} id="router-right-source" className="!w-3 !h-3 !bg-purple-500 !border-2 !border-background z-50 pointer-events-auto" style={{ top: '50%' }} />
             </div>
 
             <div className={cn(
