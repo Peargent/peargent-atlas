@@ -1627,7 +1627,7 @@ export default function AtlasPage() {
                             <NodeDetailsSidebar
                                 node={detailsNode}
                                 nodeType={detailsNodeType}
-                                className="absolute right-0 top-0 h-full z-30 border-l border-border/50"
+                                className="absolute right-0 top-0 h-full z-30 border-l border-border/50 md:static md:shrink-0"
                                 onClose={() => {
                                     setDetailsNode(null);
                                     setDetailsNodeType(null);

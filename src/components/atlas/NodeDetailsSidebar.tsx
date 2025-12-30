@@ -364,65 +364,66 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
 
     return (
         <motion.div
-            initial={{ x: width }}
-            animate={{ x: 0 }}
-            exit={{ x: width }}
+            initial={{ width: 0 }}
+            animate={{ width }}
+            exit={{ width: 0 }}
             transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
-            style={{ width }}
             className={cn(
                 "h-full border-l border-border bg-background/95 backdrop-blur-xl flex flex-col shrink-0",
                 isResizing && "select-none",
                 className
             )}
         >
-            {/* Resize Handle */}
-            <div
-                onMouseDown={handleMouseDown}
-                className={cn(
-                    "absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize group hover:bg-primary/20 transition-colors z-10",
-                    isResizing && "bg-primary/30"
-                )}
-            >
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <GripVertical className="w-3 h-3 text-muted-foreground" />
-                </div>
-            </div>
-
-            {/* Collapse Toggle - positioned outside at left edge */}
-            {onToggle && (
-                <button
-                    onClick={onToggle}
-                    className="absolute top-4 -left-12 p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5 hidden md:block"
-                    title="Collapse Sidebar"
+            <div style={{ width: width, minWidth: width }} className="h-full flex flex-col relative">
+                {/* Resize Handle */}
+                <div
+                    onMouseDown={handleMouseDown}
+                    className={cn(
+                        "absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize group hover:bg-primary/20 transition-colors z-10",
+                        isResizing && "bg-primary/30"
+                    )}
                 >
-                    <PanelRightClose className="w-5 h-5" />
-                </button>
-            )}
-
-            {/* Header */}
-            <div className="p-4 border-b border-border flex items-center justify-between bg-card/50">
-                <div className="flex items-center gap-3">
-                    <div className={cn("p-2.5 rounded-xl", config.bgColor)}>
-                        <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h2 className="font-bold text-lg text-foreground leading-tight truncate max-w-[280px]" title={nodeName}>
-                            {nodeName}
-                        </h2>
-                        <span className={cn("text-xs font-medium uppercase tracking-wider", config.color)}>
-                            {config.label}
-                        </span>
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <GripVertical className="w-3 h-3 text-muted-foreground" />
                     </div>
                 </div>
-            </div>
 
-            {/* Content */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} />}
-                {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} />}
-                {nodeType === 'router' && <RouterDetails data={localNode} onChange={handleFieldChange} />}
-                {nodeType === 'pool' && <PoolDetails data={localNode} onChange={handleFieldChange} />}
-                {nodeType === 'history' && <HistoryDetails data={localNode} onChange={handleFieldChange} />}
+                {/* Collapse Toggle - positioned outside at left edge */}
+                {onToggle && (
+                    <button
+                        onClick={onToggle}
+                        className="absolute top-4 -left-12 p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5 hidden md:block"
+                        title="Collapse Sidebar"
+                    >
+                        <PanelRightClose className="w-5 h-5" />
+                    </button>
+                )}
+
+                {/* Header */}
+                <div className="p-4 border-b border-border flex items-center justify-between bg-card/50">
+                    <div className="flex items-center gap-3">
+                        <div className={cn("p-2.5 rounded-xl", config.bgColor)}>
+                            <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="font-bold text-lg text-foreground leading-tight truncate max-w-[280px]" title={nodeName}>
+                                {nodeName}
+                            </h2>
+                            <span className={cn("text-xs font-medium uppercase tracking-wider", config.color)}>
+                                {config.label}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} />}
+                    {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} />}
+                    {nodeType === 'router' && <RouterDetails data={localNode} onChange={handleFieldChange} />}
+                    {nodeType === 'pool' && <PoolDetails data={localNode} onChange={handleFieldChange} />}
+                    {nodeType === 'history' && <HistoryDetails data={localNode} onChange={handleFieldChange} />}
+                </div>
             </div>
         </motion.div>
     );
