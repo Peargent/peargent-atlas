@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, GripVertical, History, Pencil } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, GripVertical, History, Pencil, Save, Download, FileJson, FileCode, Video, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -14,6 +14,11 @@ interface SidebarProps {
     onToggleCollapse?: () => void;
     projectName?: string;
     onProjectNameChange?: (name: string) => void;
+    isMobile?: boolean; // Added prop
+    onSave?: () => void;
+    onDownload?: () => void; // Keeping generic just in case, but using specific ones
+    onDownloadImage?: () => void;
+    onDownloadPython?: () => void;
 }
 
 interface TreeNode {
@@ -94,38 +99,106 @@ const filterTree = (node: TreeNode, query: string): TreeNode | null => {
     return null;
 };
 
-const buildTree = (json: any): TreeNode => {
-    if (json.type === 'pool') {
-        const children: TreeNode[] = [];
+const buildPoolChildren = (data: any): TreeNode[] => {
+    const children: TreeNode[] = [];
 
-        if (json.data.router) {
+    if (data.router) {
+        children.push({
+            id: 'router-main',
+            label: data.router.name,
+            type: 'router',
+            icon: Network,
+        });
+    }
+
+    data.agents?.forEach((agent: any, idx: number) => {
+        children.push(createAgentNode(agent, `agent-${idx}`));
+    });
+
+    if (data.history) {
+        children.push({
+            id: 'pool-root-history',
+            label: 'History',
+            type: 'history' as const,
+            icon: History,
+        });
+    }
+
+    // Standalone Pool unassigned items
+    data.unassigned_agents?.forEach((agent: any, idx: number) => {
+        children.push(createAgentNode(agent, `agent-unassigned-${idx}`));
+    });
+
+    data.unassigned_tools?.forEach((tool: any, idx: number) => {
+        children.push({
+            id: `tool-unassigned-${idx}`,
+            label: tool.name,
+            type: 'tool',
+            icon: Wrench
+        });
+    });
+
+    return children;
+};
+
+const buildTree = (json: any): TreeNode => {
+    if (json.type === 'project') {
+        const children: TreeNode[] = [];
+        const projectData = json.data;
+
+        // 1. Pool
+        if (projectData.pool) {
             children.push({
-                id: 'router-main',
-                label: json.data.router.name,
-                type: 'router',
-                icon: Network,
+                id: 'pool-root',
+                label: projectData.pool.name || 'Agent Pool',
+                type: 'pool',
+                children: buildPoolChildren(projectData.pool),
+                icon: Database,
             });
         }
 
-        json.data.agents?.forEach((agent: any, idx: number) => {
-            children.push(createAgentNode(agent, `agent-${idx}`));
+        // 2. Unassigned Items
+        projectData.unassigned_agents?.forEach((agent: any, idx: number) => {
+            // Handle ID properly - use _id if available, else idx logic matching layout/handleAddAgent
+            const id = agent._id ? `agent-unassigned-${agent._id}` : `agent-unassigned-${idx}`;
+            children.push(createAgentNode(agent, id));
         });
 
-        // Add pool-level history node if exists
-        if (json.data.history) {
+        projectData.unassigned_tools?.forEach((tool: any, idx: number) => {
+            const id = tool._id ? `tool-unassigned-${tool._id}` : `tool-unassigned-${idx}`;
             children.push({
-                id: 'pool-history',
+                id: id,
+                label: tool.name,
+                type: 'tool',
+                icon: Wrench
+            });
+        });
+
+        projectData.unassigned_histories?.forEach((history: any, idx: number) => {
+            const id = history._id ? `history-unassigned-${history._id}` : `history-unassigned-${idx}`;
+            children.push({
+                id: id,
                 label: 'History',
                 type: 'history' as const,
-                icon: History,
+                icon: History
             });
-        }
+        });
 
         return {
-            id: 'root',
-            label: 'Agent Pool',
-            type: 'pool',
+            id: 'project-root',
+            label: json.name || 'Project',
+            type: 'collection', // Acts as a container
             children,
+            icon: Box,
+        };
+    }
+
+    if (json.type === 'pool') {
+        return {
+            id: 'root',
+            label: json.data.name || 'Agent Pool',
+            type: 'pool',
+            children: buildPoolChildren(json.data),
             icon: Database,
         };
     }
@@ -160,7 +233,7 @@ const buildTree = (json: any): TreeNode => {
 
 
 const SocialLinks = ({ withHoverEffect = false, vertical = false }: { withHoverEffect?: boolean; vertical?: boolean }) => (
-    <div className={cn("flex items-center gap-4 pt-2", vertical && "flex-col")}>
+    <div className={cn("flex items-center gap-4", vertical && "flex-col")}>
         {SOCIAL_LINKS.map(({ href, icon: Icon, title }) => (
             <a
                 key={href}
@@ -201,16 +274,18 @@ const Footer = ({ collapsed }: { collapsed: boolean }) => (
 );
 
 const MobileHeader = ({ onClose }: { onClose?: () => void }) => (
-    <div className="flex items-center justify-between mb-2 mt-2 mx-2 md:hidden">
-        <SocialLinks />
-        <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between py-3 px-4 md:hidden border-b border-sidebar-border mb-2">
+        <div className="flex items-center gap-1">
             <ThemeToggle className="border-none bg-transparent p-0" />
+        </div>
+        <div className="flex items-center gap-4">
+            <SocialLinks />
             {onClose && (
                 <button
                     onClick={onClose}
-                    className="p-2 -mr-2 rounded-lg hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors"
+                    className="p-1.5 rounded-md hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                    <PanelLeft className="w-5 h-5" />
+                    <PanelLeftClose className="w-5 h-5 rotate-180" />
                 </button>
             )}
         </div>
@@ -240,7 +315,12 @@ export default function AtlasSidebar({
     onClose,
     onToggleCollapse,
     projectName,
-    onProjectNameChange
+    onProjectNameChange,
+    isMobile = false,
+    onSave,
+    onDownload,
+    onDownloadImage,
+    onDownloadPython
 }: SidebarProps & { isCollapsed?: boolean }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
@@ -350,7 +430,7 @@ export default function AtlasSidebar({
 
     return (
         <div
-            style={{ width: isCollapsed ? COLLAPSED_WIDTH : width }}
+            style={{ width: isMobile ? '100%' : (isCollapsed ? COLLAPSED_WIDTH : width) }}
             className={cn(
                 "flex flex-col border-r border-sidebar-border bg-background backdrop-blur-xl h-full relative shrink-0 transition-[width] duration-200",
                 isResizing && "select-none transition-none",
@@ -358,7 +438,7 @@ export default function AtlasSidebar({
             )}
         >
             {/* Resize Handle */}
-            {!isCollapsed && (
+            {!isCollapsed && !isMobile && (
                 <div
                     onMouseDown={handleMouseDown}
                     className={cn(
@@ -374,8 +454,8 @@ export default function AtlasSidebar({
 
             {/* Header - Only Mobile now */}
             <div className={cn(
-                "flex md:hidden",
-                isCollapsed ? "justify-center pt-4" : "px-5 py-1 mb-4"
+                "flex md:hidden flex-col w-full",
+                isCollapsed && "items-center pt-4"
             )}>
                 <MobileHeader onClose={onClose} />
             </div>
@@ -410,6 +490,46 @@ export default function AtlasSidebar({
                                     className="w-full bg-transparent border-b border-border/50 focus:border-primary py-1.5 text-base font-medium text-foreground focus:outline-none transition-colors placeholder:text-muted-foreground/50"
                                 />
                                 <Pencil className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40 group-focus-within:text-primary transition-colors" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Mobile Actions */}
+                    {isMobile && (
+                        <div className="flex flex-col gap-2 px-5 pb-2">
+                            <button
+                                onClick={onSave}
+                                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 transition-colors text-sm font-medium"
+                            >
+                                <Save className="w-4 h-4" />
+                                Save Project
+                            </button>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                <button
+                                    onClick={onDownload}
+                                    className="flex flex-col items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-card border border-border/50 hover:bg-white/5 transition-colors"
+                                    title="Download .pear (JSON)"
+                                >
+                                    <FileJson className="w-4 h-4 text-primary" />
+                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">JSON</span>
+                                </button>
+                                <button
+                                    onClick={onDownloadPython}
+                                    className="flex flex-col items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-card border border-border/50 hover:bg-white/5 transition-colors"
+                                    title="Download .py (Python)"
+                                >
+                                    <FileCode className="w-4 h-4 text-amber-500" />
+                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">Code</span>
+                                </button>
+                                <button
+                                    onClick={onDownloadImage}
+                                    className="flex flex-col items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-card border border-border/50 hover:bg-white/5 transition-colors"
+                                    title="Download Image (PNG)"
+                                >
+                                    <ImageIcon className="w-4 h-4 text-blue-500" />
+                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">Image</span>
+                                </button>
                             </div>
                         </div>
                     )}

@@ -477,4 +477,9 @@ export const FIELD_OPTIONS = {
         { value: 'OpenAIModel', label: 'OpenAI' },
         { value: 'AnthropicModel', label: 'Anthropic' },
     ],
+    tracing: [
+        { value: 'null', label: 'Inherit (Default)' },
+        { value: 'true', label: 'On' },
+        { value: 'false', label: 'Off' },
+    ],
 };

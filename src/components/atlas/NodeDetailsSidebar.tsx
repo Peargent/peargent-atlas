@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X, Bot, Network, Database, Wrench, Code, Settings, RefreshCw, AlertCircle, FileCode, List, Type, User, Brain, GripVertical, History, MessageSquare, PanelRightClose, Plus } from 'lucide-react';
+import { X, Bot, Network, Database, Wrench, Code, Settings, RefreshCw, AlertCircle, FileCode, List, Type, User, Brain, GripVertical, History, MessageSquare, PanelRightClose, Plus, MousePointerClick } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { EditableField, FIELD_OPTIONS } from '@/components/ui/EditableField';
@@ -14,6 +14,7 @@ interface NodeDetailsSidebarProps {
     onWidthChange?: (width: number) => void;
     onToggle?: () => void;
     className?: string;
+    isMobile?: boolean;
 }
 
 // Resize limits
@@ -73,8 +74,8 @@ const DetailField = ({ label, value, icon: Icon, mono = false }: {
 // Agent Details with editable fields
 const AgentDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => (
     <div className="space-y-6">
-        <Section title="Agent Info" icon={Bot} color="text-blue-400">
-            <EditableField label="Name" value={data.name} type="text" onChange={(v) => onChange('name', v)} icon={Type} color="text-blue-400" />
+        <Section title="Agent Configuration" icon={Bot} color="text-blue-400">
+            <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} color="text-blue-400" />
             <EditableField label="Description" value={data.description} type="textarea" onChange={(v) => onChange('description', v)} placeholder="Agent description..." color="text-blue-400" />
             <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} icon={User} placeholder="Agent persona/system prompt..." expandable={true} color="text-blue-400" />
         </Section>
@@ -85,7 +86,7 @@ const AgentDetails = ({ data, onChange }: { data: any; onChange: (field: string,
                 <EditableField label="Model Name" value={data.model?.model_name || ''} type="text" onChange={(v) => onChange('model.model_name', v)} mono placeholder="e.g. llama-3.3-70b-versatile" color="text-blue-400" />
             </div>
             <EditableField label="Max Retries" value={data.max_retries} type="number" onChange={(v) => onChange('max_retries', v)} mono placeholder="3" color="text-blue-400" />
-            <EditableField label="Tracing" value={data.tracing} type="boolean" onChange={(v) => onChange('tracing', v)} color="text-blue-400" />
+            <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-blue-400" />
             <EditableField label="Auto Context" value={data.auto_manage_context} type="boolean" onChange={(v) => onChange('auto_manage_context', v)} color="text-blue-400" />
         </Section>
 
@@ -215,6 +216,7 @@ const RouterDetails = ({ data, onChange }: { data: any; onChange: (field: string
                 <EditableField label="Model Provider" value={data.model?.type || 'GroqModel'} type="select" options={FIELD_OPTIONS.model_provider} onChange={(v) => onChange('model.type', v)} color="text-purple-400" />
                 <EditableField label="Model Name" value={data.model?.model_name || ''} type="text" onChange={(v) => onChange('model.model_name', v)} mono placeholder="e.g. llama-3.3-70b-versatile" color="text-purple-400" />
             </div>
+            <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-purple-400" />
         </Section>
 
         {data.stop_conditions && (
@@ -233,7 +235,7 @@ const PoolDetails = ({ data, onChange }: {
     <div className="space-y-6">
         <Section title="Pool Configuration" icon={Settings} color="text-emerald-400">
             <EditableField label="Max Iterations" value={data.max_iter} type="number" onChange={(v) => onChange('max_iter', v)} mono placeholder="5" color="text-emerald-400" />
-            <EditableField label="Tracing" value={data.tracing} type="boolean" onChange={(v) => onChange('tracing', v)} color="text-emerald-400" />
+            <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-emerald-400" />
         </Section>
 
         {data.agent_names && data.agent_names.length > 0 && (
@@ -277,7 +279,20 @@ const TYPE_CONFIG = {
     history: { icon: History, color: 'text-pink-400', bgColor: 'bg-gradient-to-br from-pink-500 to-rose-600', label: 'History' },
 };
 
-export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, onWidthChange, onToggle, className }: NodeDetailsSidebarProps) {
+// Empty state component
+const EmptySidebarState = () => (
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4 opacity-50">
+        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+            <MousePointerClick className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <div className="space-y-2 max-w-[240px]">
+            <h3 className="font-semibold text-foreground">Nothing to show here</h3>
+            <p className="text-sm text-muted-foreground">Select a node to view its configuration, or add a new node to get started.</p>
+        </div>
+    </div>
+);
+
+export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, onWidthChange, onToggle, className, isMobile = false }: NodeDetailsSidebarProps) {
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isResizing, setIsResizing] = useState(false);
     const [localNode, setLocalNode] = useState(node);
@@ -356,11 +371,55 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
         document.addEventListener('mouseup', handleMouseUp);
     }, [width]);
 
-    if (!localNode || !nodeType) return null;
+    // Prepare content based on state
+    let content = null;
+    let header = null;
 
-    const config = TYPE_CONFIG[nodeType];
-    const Icon = config.icon;
-    const nodeName = localNode.name || localNode.label || nodeType;
+    if (localNode && nodeType) {
+        const config = TYPE_CONFIG[nodeType];
+        const Icon = config.icon;
+        const nodeName = localNode.name || localNode.label || nodeType;
+
+        header = (
+            <div className="p-4 border-b border-border flex items-center justify-between bg-card/50">
+                <div className="flex items-center gap-3">
+                    <div className={cn("p-2.5 rounded-xl", config.bgColor)}>
+                        <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                        <h2 className="font-bold text-lg text-foreground leading-tight truncate max-w-[280px]" title={nodeName}>
+                            {nodeName}
+                        </h2>
+                        <span className={cn("text-xs font-medium uppercase tracking-wider", config.color)}>
+                            {config.label}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        );
+
+        content = (
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} />}
+                {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} />}
+                {nodeType === 'router' && <RouterDetails data={localNode} onChange={handleFieldChange} />}
+                {nodeType === 'pool' && <PoolDetails data={localNode} onChange={handleFieldChange} />}
+                {nodeType === 'history' && <HistoryDetails data={localNode} onChange={handleFieldChange} />}
+            </div>
+        );
+    } else {
+        content = <EmptySidebarState />;
+    }
+
+    // Mobile View
+    if (isMobile) {
+        return (
+            <div className={cn("h-full flex flex-col bg-transparent", className)}>
+                {header}
+                {content}
+            </div>
+        );
+    }
 
     return (
         <motion.div
@@ -399,31 +458,8 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                     </button>
                 )}
 
-                {/* Header */}
-                <div className="p-4 border-b border-border flex items-center justify-between bg-card/50">
-                    <div className="flex items-center gap-3">
-                        <div className={cn("p-2.5 rounded-xl", config.bgColor)}>
-                            <Icon className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="font-bold text-lg text-foreground leading-tight truncate max-w-[280px]" title={nodeName}>
-                                {nodeName}
-                            </h2>
-                            <span className={cn("text-xs font-medium uppercase tracking-wider", config.color)}>
-                                {config.label}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Content */}
-                <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                    {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} />}
-                    {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} />}
-                    {nodeType === 'router' && <RouterDetails data={localNode} onChange={handleFieldChange} />}
-                    {nodeType === 'pool' && <PoolDetails data={localNode} onChange={handleFieldChange} />}
-                    {nodeType === 'history' && <HistoryDetails data={localNode} onChange={handleFieldChange} />}
-                </div>
+                {header}
+                {content}
             </div>
         </motion.div>
     );
