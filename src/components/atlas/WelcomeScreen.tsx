@@ -1,6 +1,7 @@
 import React from 'react';
 import { Sparkles, FolderOpen, Bot, Database, Wrench, Network } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useTheme } from 'next-themes';
 
 interface WelcomeScreenProps {
     title: React.ReactNode;
@@ -17,6 +18,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     onImport,
     onTutorial
 }) => {
+    const { resolvedTheme } = useTheme();
+    const borderClass = resolvedTheme === 'dark' ? 'border-border' : 'border-border';
+    const [isExampleHovered, setIsExampleHovered] = React.useState(false);
+
     return (
         <div className="absolute inset-0 z-10 overflow-y-auto">
             <div className="min-h-full flex items-center justify-center py-8">
@@ -73,9 +78,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         <div className="mt-6 mb-8 flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
                             <button
                                 onClick={onTutorial}
-                                className="group relative px-6 py-3 rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 border border-primary/20 hover:border-primary/40"
+                                className={cn(
+                                    "group relative px-6 py-3 rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 border border-primary/20 hover:border-primary/40",
+                                    isExampleHovered && "scale-105 border-primary/40"
+                                )}
                             >
-                                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-emerald-500/10 to-primary/10 transition-opacity opacity-50 group-hover:opacity-100" />
+                                <div className={cn(
+                                    "absolute inset-0 bg-gradient-to-r from-primary/10 via-emerald-500/10 to-primary/10 transition-opacity opacity-50 group-hover:opacity-100",
+                                    isExampleHovered && "opacity-100"
+                                )} />
                                 <div className="relative flex items-center gap-3">
                                     <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
                                         <Sparkles className="w-4 h-4" />
@@ -83,7 +94,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                                     <span className="font-medium text-foreground text-sm" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '1.1rem' }}>
                                         Example
                                     </span>
-                                    <span className="text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity">
+                                    <span className={cn(
+                                        "text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity",
+                                        isExampleHovered && "opacity-100"
+                                    )}>
                                         Click to load example
                                     </span>
                                 </div>
@@ -93,13 +107,24 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
                     {/* How to use Atlas Section */}
                     <div className="mt-4 text-left animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                        <h3 className="text-3xl text-center mb-8 text-foreground/80" style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>
+                        <h3 className="text-3xl text-center mb-2 text-foreground/80" style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>
                             How to use Atlas
                         </h3>
+                        <p className="text-center text-muted-foreground mb-4 text-sm max-w-2xl mx-auto">
+                            Connect the nodes below to design custom AI agents and orchestrate unique, powerful workflows.
+                        </p>
+                        <p className="text-center text-muted-foreground mb-8 text-xs opacity-70">
+                            Click on the <span
+                                className="underline cursor-pointer hover:text-primary transition-colors"
+                                onMouseEnter={() => setIsExampleHovered(true)}
+                                onMouseLeave={() => setIsExampleHovered(false)}
+                                // onClick={onTutorial}
+                            >Example</span> to load simple example and understand <span className="text-primary">Atlas</span>
+                        </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                             {/* Agent Node */}
-                            <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
+                            <div className={cn("p-4 rounded-xl bg-card/30 border hover:bg-card/50 transition-colors", borderClass)}>
                                 <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3 text-blue-400">
                                     <Bot className="w-4 h-4" />
                                 </div>
@@ -110,7 +135,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                             </div>
 
                             {/* Pool Node */}
-                            <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
+                            <div className={cn("p-4 rounded-xl bg-card/30 border hover:bg-card/50 transition-colors", borderClass)}>
                                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-3 text-emerald-400">
                                     <Database className="w-4 h-4" />
                                 </div>
@@ -121,7 +146,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                             </div>
 
                             {/* Tool Node */}
-                            <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
+                            <div className={cn("p-4 rounded-xl bg-card/30 border hover:bg-card/50 transition-colors", borderClass)}>
                                 <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mb-3 text-amber-400">
                                     <Wrench className="w-4 h-4" />
                                 </div>
@@ -132,7 +157,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                             </div>
 
                             {/* Router Node */}
-                            <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
+                            <div className={cn("p-4 rounded-xl bg-card/30 border hover:bg-card/50 transition-colors", borderClass)}>
                                 <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3 text-purple-400">
                                     <Network className="w-4 h-4" />
                                 </div>
@@ -144,7 +169,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         </div>
 
                         {/* Export & Run */}
-                        <div className="rounded-xl bg-gradient-to-r from-primary/5 via-card/50 to-primary/5 border border-white/10 p-5 flex flex-col md:flex-row items-center gap-6 justify-between">
+                        <div className={cn("rounded-xl bg-gradient-to-r from-primary/5 via-card/50 to-primary/5 border p-5 flex flex-col md:flex-row items-center gap-6 justify-between")}>
                             <div className="flex gap-4 items-center">
                                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
                                     <Sparkles className="w-5 h-5 text-primary" />

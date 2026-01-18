@@ -13,6 +13,7 @@ import { Toast } from "@/components/ui/Toast";
 import { Upload, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, PanelLeftClose, FileCode, PanelRight, PanelRightClose, Sparkles, FolderOpen, Bot, Network, History, Wrench, Layers, Redo2, Undo2, Menu, ArrowLeft, ArrowRight, Settings, Check, ChevronDown, Github, Database } from "lucide-react";
 import MobileBottomSheet from '@/components/atlas/MobileBottomSheet';
 import { createTutorialData, tutorialViewport } from '@/components/atlas/Tutorial';
+import { WelcomeScreen } from '@/components/atlas/WelcomeScreen';
 
 
 // Types
@@ -97,7 +98,7 @@ export default function AtlasPage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Desktop sidebar
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Desktop sidebar
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [detailsNode, setDetailsNode] = useState<any>(null);
     const [detailsNodeType, setDetailsNodeType] = useState<'agent' | 'router' | 'tool' | 'pool' | 'history' | null>(null);
@@ -2954,7 +2955,7 @@ export default function AtlasPage() {
                                     }
                                     handleDownloadPear();
                                 }}
-                                className="flex items-center justify-center w-fit px-4 py-2 h-9 hover:bg-white/5 text-foreground transition-all group border rounded-sm border-white/10 text-sm font-medium"
+                                className="flex items-center justify-center w-fit px-4 py-2 h-9 hover:bg-white/5 text-foreground transition-all group border rounded-sm border-border text-sm font-medium"
                                 title="Download .pear file"
                             >
                                 <Download className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-all mr-2" />
@@ -2966,7 +2967,7 @@ export default function AtlasPage() {
                             href="https://github.com/Peargent/peargent"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center justify-center w-fit px-5 h-9 bg-black hover:bg-neutral-900 text-white transition-all group rounded-sm text-sm font-medium border border-white/10"
+                            className="flex items-center justify-center w-fit px-5 h-9 bg-black hover:bg-neutral-900 text-white transition-all group rounded-sm text-sm font-medium border border-border"
                             title="Star on GitHub"
                         >
                             <Github className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
@@ -3052,154 +3053,14 @@ export default function AtlasPage() {
 
                         {/* In-Tab Onboarding - shows when tab has no data */}
                         {activeTab && activeTab.data === null && (
-                            <div className="absolute inset-0 z-10 overflow-y-auto">
-                                <div className="min-h-full flex items-center justify-center py-8">
-                                    <div className="text-center w-full max-w-5xl mx-auto px-4">
-                                        <div className="max-w-md mx-auto">
-                                            <h2
-                                                className="text-5xl font-normal mb-2 text-foreground"
-                                                style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
-                                            >
-                                                Create with <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas
-                                            </h2>
-                                            <p className="text-muted-foreground text-sm mb-8">
-                                                Visual builder for AI agent systems
-                                            </p>
-
-                                            <div className="grid grid-cols-2 gap-4 text-left">
-                                                {/* Build from Scratch */}
-                                                <button
-                                                    onClick={handleNewProject}
-                                                    className="group w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-emerald-500/15 transition-all duration-300 flex flex-col justify-between h-[160px] relative overflow-hidden text-left items-start"
-                                                >
-                                                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                        <Sparkles className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <div className="relative z-10">
-                                                        <h3 className="font-semibold text-foreground mb-1">Create Atlas</h3>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">Build your agent system visually, node by node</p>
-                                                    </div>
-                                                </button>
-
-                                                {/* Import File */}
-                                                <label className="group w-full p-4 rounded-xl bg-card/50 border border-border hover:border-primary/30 hover:bg-card/80 transition-all duration-300 flex flex-col justify-between h-[160px] cursor-pointer relative overflow-hidden">
-                                                    <input
-                                                        type="file"
-                                                        accept=".pear,.json"
-                                                        onChange={handleImportToCurrentTab}
-                                                        className="hidden"
-                                                    />
-                                                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                        <FolderOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                                    </div>
-                                                    <div className="relative z-10">
-                                                        <h3 className="font-semibold text-foreground mb-1">Import .pear File</h3>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">Load an existing agent configuration</p>
-                                                    </div>
-                                                </label>
-                                            </div>
-
-                                            {/* <div className="mt-8 text-xs text-muted-foreground/50 font-medium tracking-wide">
-                                                or drag and drop a .pear file anywhere
-                                            </div> */}
-                                        </div>
-
-                                        {/* Tutorial Button */}
-                                        <div className="mt-6 mb-8 flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-                                            <button
-                                                onClick={handleTutorial}
-                                                className="group relative px-6 py-3 rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 border border-primary/20 hover:border-primary/40"
-                                            >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-emerald-500/10 to-primary/10 transition-opacity opacity-50 group-hover:opacity-100" />
-                                                <div className="relative flex items-center gap-3">
-                                                    <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
-                                                        <Sparkles className="w-4 h-4" />
-                                                    </div>
-                                                    <span className="font-medium text-foreground text-sm" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '1.1rem' }}>
-                                                        Example
-                                                    </span>
-                                                    <span className="text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity">
-                                                        Click to load example
-                                                    </span>
-                                                </div>
-                                            </button>
-                                        </div>
-
-                                        {/* How to use Atlas Section */}
-                                        <div className="mt-4 text-left animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                                            <h3 className="text-3xl text-center mb-8 text-foreground/80" style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>
-                                                How to use Atlas
-                                            </h3>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                                {/* Agent Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3 text-blue-400">
-                                                        <Bot className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Agent Node</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Autonomous AI entity configured with a model and instructions to execute specific tasks.
-                                                    </p>
-                                                </div>
-
-                                                {/* Pool Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-3 text-emerald-400">
-                                                        <Database className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Agent Pool</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Orchestration layer that manages multiple agents and delegates tasks efficiently.
-                                                    </p>
-                                                </div>
-
-                                                {/* Tool Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mb-3 text-amber-400">
-                                                        <Wrench className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Tool Node</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Custom Python functions that agents can execute to interact with external systems.
-                                                    </p>
-                                                </div>
-
-                                                {/* Router Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3 text-purple-400">
-                                                        <Network className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Router Node</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Intelligent routing layer that directs user intent to the most appropriate agent.
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Export & Run */}
-                                            <div className="rounded-xl bg-gradient-to-r from-primary/5 via-card/50 to-primary/5 border border-white/10 p-5 flex flex-col md:flex-row items-center gap-6 justify-between">
-                                                <div className="flex gap-4 items-center">
-                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                                                        <Download className="w-5 h-5 text-primary" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="text-sm font-semibold text-foreground">Export & Run</h4>
-                                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                                            Download your altas as a .pear file and run it directly with the Peargent CLI.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="shrink-0 font-mono text-xs bg-muted px-3 py-1.5 rounded-md border border-border text-muted-foreground">
-                                                    peargent run my-agent.pear
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <WelcomeScreen
+                                title={
+                                    <>Create with <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas</>
+                                }
+                                onNewProject={handleNewProject}
+                                onImport={handleImportToCurrentTab}
+                                onTutorial={handleTutorial}
+                            />
                         )}
 
                         {/* Left Sidebar Toggle */}
@@ -3584,157 +3445,16 @@ export default function AtlasPage() {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    className="absolute inset-0 z-10 overflow-y-auto"
+                                    className="absolute inset-0 z-10"
                                 >
-                                    <div className="min-h-full flex items-center justify-center py-8">
-                                        <div className="text-center w-full max-w-5xl mx-auto px-4">
-                                            <div className="max-w-md mx-auto">
-                                                {/* Header */}
-                                                <h1
-                                                    className="text-5xl font-normal mb-3 text-foreground"
-                                                    style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
-                                                >
-                                                    Welcome to <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas
-                                                </h1>
-                                                <p className="text-muted-foreground text-lg mb-10 font-light">
-                                                    Visual builder for AI agent systems
-                                                </p>
-
-                                                {/* Dual Path Cards */}
-                                                <div className="grid grid-cols-2 gap-4 text-left">
-                                                    {/* Start from Scratch */}
-                                                    <button
-                                                        onClick={handleNewProject}
-                                                        className="group w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-emerald-500/15 transition-all duration-300 flex flex-col justify-between h-[160px] relative overflow-hidden text-left items-start"
-                                                    >
-                                                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                            <Sparkles className="w-5 h-5 text-white" />
-                                                        </div>
-                                                        <div className="relative z-10">
-                                                            <h3 className="font-semibold text-foreground mb-1">Create Atlas</h3>
-                                                            <p className="text-xs text-muted-foreground leading-relaxed">Build your agent system visually, node by node</p>
-                                                        </div>
-                                                    </button>
-
-                                                    {/* Import File */}
-                                                    <label className="group w-full p-4 rounded-xl bg-card/50 border border-border hover:border-primary/30 hover:bg-card/80 transition-all duration-300 flex flex-col justify-between h-[160px] cursor-pointer relative overflow-hidden">
-                                                        <input
-                                                            type="file"
-                                                            accept=".pear,.json"
-                                                            onChange={handleFileSelect}
-                                                            className="hidden"
-                                                        />
-                                                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                            <FolderOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                                        </div>
-                                                        <div className="relative z-10">
-                                                            <h3 className="font-semibold text-foreground mb-1">Import .pear File</h3>
-                                                            <p className="text-xs text-muted-foreground leading-relaxed">Load an existing agent configuration</p>
-                                                        </div>
-                                                    </label>
-                                                </div>
-
-                                                {/* Drag hint */}
-                                                {/* <p className="text-xs text-muted-foreground/60 mt-8">
-                                                    or drag and drop a <span className="font-mono text-primary/60">.pear</span> file anywhere
-                                                </p> */}
-                                            </div>
-
-                                            {/* Tutorial Button */}
-                                            <div className="mt-6 mb-8 flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-                                                <button
-                                                    onClick={handleTutorial}
-                                                    className="group relative px-6 py-3 rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 border border-primary/20 hover:border-primary/40"
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-emerald-500/10 to-primary/10 transition-opacity opacity-50 group-hover:opacity-100" />
-                                                    <div className="relative flex items-center gap-3">
-                                                        <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
-                                                            <Sparkles className="w-4 h-4" />
-                                                        </div>
-                                                        <span className="font-medium text-foreground text-sm" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '1.1rem' }}>
-                                                            Example
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity">
-                                                            Click to load example
-                                                        </span>
-                                                    </div>
-                                                </button>
-                                            </div>
-
-                                            {/* How to use Atlas Section */}
-                                            <div className="mt-4 text-left animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                                                <h3 className="text-3xl text-center mb-8 text-foreground/80" style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>
-                                                    How to use Atlas
-                                                </h3>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                                    {/* Agent Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3 text-blue-400">
-                                                            <Bot className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Agent Node</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Autonomous AI entity configured with a model and instructions to execute specific tasks.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Pool Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-3 text-emerald-400">
-                                                            <Database className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Agent Pool</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Orchestration layer that manages multiple agents and delegates tasks efficiently.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Tool Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mb-3 text-amber-400">
-                                                            <Wrench className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Tool Node</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Custom Python functions that agents can execute to interact with external systems.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Router Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3 text-purple-400">
-                                                            <Network className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Router Node</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Intelligent routing layer that directs user intent to the most appropriate agent.
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {/* Export & Run */}
-                                                <div className="rounded-xl bg-gradient-to-r from-primary/5 via-card/50 to-primary/5 border border-white/10 p-5 flex flex-col md:flex-row items-center gap-6 justify-between">
-                                                    <div className="flex gap-4 items-center">
-                                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                                                            <Download className="w-5 h-5 text-primary" />
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-sm font-semibold text-foreground">Export & Run</h4>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                                Download your atlas as a .pear file and run it directly with the Peargent CLI.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="shrink-0 font-mono text-xs bg-muted px-3 py-1.5 rounded-md border border-border text-muted-foreground">
-                                                        peargent run my-agent.pear
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <WelcomeScreen
+                                        title={
+                                            <>Welcome to <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas</>
+                                        }
+                                        onNewProject={handleNewProject}
+                                        onImport={handleFileSelect}
+                                        onTutorial={handleTutorial}
+                                    />
                                 </motion.div>
                             )}
                         </AnimatePresence>

@@ -46,7 +46,7 @@ export function PoolNode({ data }: NodeProps) {
 
             <div className={cn(
                 "relative flex flex-col gap-4 p-4 rounded-2xl bg-card/90 backdrop-blur-xl border shadow-2xl z-10",
-                highlighted ? "border-emerald-500" : "border-white/10"
+                highlighted ? "border-emerald-500" : "border-border"
             )}>
                 {/* Header */}
                 <div className="flex items-center gap-4">
@@ -93,7 +93,7 @@ export function RouterNode({ data }: NodeProps) {
 
             <div className={cn(
                 "relative flex flex-col gap-4 p-4 rounded-2xl bg-card/90 backdrop-blur-xl border shadow-2xl z-10",
-                highlighted ? "border-purple-500" : "border-white/10"
+                highlighted ? "border-purple-500" : "border-border"
             )}>
                 {/* Header */}
                 <div className="flex items-center gap-4">
@@ -142,7 +142,7 @@ export function AgentNode({ data }: NodeProps) {
             {/* Card Content */}
             <div className={cn(
                 "relative flex flex-col gap-3 p-4 rounded-2xl bg-card/80 backdrop-blur-xl border shadow-2xl cursor-pointer",
-                highlighted ? "border-blue-500" : "border-white/10"
+                highlighted ? "border-blue-500" : "border-border"
             )}>
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg shadow-blue-500/20 shrink-0">
@@ -170,7 +170,7 @@ export function ToolNode({ data }: NodeProps) {
 
             <div className={cn(
                 "relative flex flex-col gap-2 p-3 rounded-xl bg-card/90 backdrop-blur-xl border shadow-lg cursor-pointer",
-                highlighted ? "border-amber-500" : "border-white/10"
+                highlighted ? "border-amber-500" : "border-border"
             )}>
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shadow-md shadow-amber-500/20 shrink-0">
@@ -199,7 +199,7 @@ export function HistoryNode({ data }: NodeProps) {
 
             <div className={cn(
                 "relative flex flex-col gap-2 p-3 rounded-xl bg-card/90 backdrop-blur-xl border shadow-lg cursor-pointer",
-                highlighted ? "border-pink-500" : "border-white/10"
+                highlighted ? "border-pink-500" : "border-border"
             )}>
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 shadow-md shadow-pink-500/20 shrink-0">
