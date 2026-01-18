@@ -35,11 +35,7 @@ export function PoolNode({ data }: NodeProps) {
             {/* Glow Effect */}
             {/* <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl opacity-40 blur-lg" /> */}
 
-            {/* Selection Glow */}
-            <div className={cn(
-                "absolute inset-0 rounded-2xl transition duration-300",
-                highlighted ? "shadow-[0_0_20px_theme(colors.emerald.500)]" : "opacity-0"
-            )} />
+
 
             {/* Base Connector Layer */}
             <div className="absolute inset-0 pointer-events-none z-50">
@@ -50,7 +46,7 @@ export function PoolNode({ data }: NodeProps) {
 
             <div className={cn(
                 "relative flex flex-col gap-4 p-4 rounded-2xl bg-card/90 backdrop-blur-xl border shadow-2xl z-10",
-                highlighted ? "border-emerald-500/50" : "border-white/10"
+                highlighted ? "border-emerald-500" : "border-white/10"
             )}>
                 {/* Header */}
                 <div className="flex items-center gap-4">
@@ -88,11 +84,7 @@ export function RouterNode({ data }: NodeProps) {
             {/* Glow Effect */}
             {/* <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl opacity-40 blur-lg" /> */}
 
-            {/* Selection Glow */}
-            <div className={cn(
-                "absolute inset-0 rounded-2xl transition duration-300",
-                highlighted ? "shadow-[0_0_20px_theme(colors.purple.500)]" : "opacity-0"
-            )} />
+
 
             {/* Base Connector Layer */}
             <div className="absolute inset-0 pointer-events-none z-50">
@@ -101,11 +93,11 @@ export function RouterNode({ data }: NodeProps) {
 
             <div className={cn(
                 "relative flex flex-col gap-4 p-4 rounded-2xl bg-card/90 backdrop-blur-xl border shadow-2xl z-10",
-                highlighted ? "border-purple-500/50" : "border-white/10"
+                highlighted ? "border-purple-500" : "border-white/10"
             )}>
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg shadow-purple-500/20 shrink-0">
+                    <div className="p-3 rounded-xl bg-purple-500 shadow-lg shadow-purple-500/20 shrink-0">
                         <Network className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -145,16 +137,12 @@ export function AgentNode({ data }: NodeProps) {
                 <Handle type="source" position={Position.Right} id="right-history-source" className="!w-3 !h-3 !bg-pink-500 !border-2 !border-background z-50 pointer-events-auto" style={{ top: 42 }} />
             </div>
 
-            {/* Selection Glow */}
-            <div className={cn(
-                "absolute inset-0 rounded-2xl transition duration-300",
-                highlighted ? "shadow-[0_0_20px_theme(colors.blue.500)]" : "opacity-0"
-            )} />
+
 
             {/* Card Content */}
             <div className={cn(
                 "relative flex flex-col gap-3 p-4 rounded-2xl bg-card/80 backdrop-blur-xl border shadow-2xl cursor-pointer",
-                highlighted ? "border-blue-500/50" : "border-white/10"
+                highlighted ? "border-blue-500" : "border-white/10"
             )}>
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg shadow-blue-500/20 shrink-0">
@@ -178,15 +166,11 @@ export function ToolNode({ data }: NodeProps) {
 
     return (
         <div className="relative group min-w-[180px] max-w-[220px]">
-            {/* Selection Glow */}
-            <div className={cn(
-                "absolute inset-0 rounded-xl transition duration-300",
-                highlighted ? "shadow-[0_0_20px_theme(colors.amber.500)]" : "opacity-0"
-            )} />
+
 
             <div className={cn(
                 "relative flex flex-col gap-2 p-3 rounded-xl bg-card/90 backdrop-blur-xl border shadow-lg cursor-pointer",
-                highlighted ? "border-amber-500/50" : "border-white/10"
+                highlighted ? "border-amber-500" : "border-white/10"
             )}>
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shadow-md shadow-amber-500/20 shrink-0">
@@ -211,15 +195,11 @@ export function HistoryNode({ data }: NodeProps) {
 
     return (
         <div className="relative group min-w-[180px] max-w-[220px]">
-            {/* Selection Glow */}
-            <div className={cn(
-                "absolute inset-0 rounded-xl transition duration-300",
-                highlighted ? "shadow-[0_0_20px_theme(colors.pink.500)]" : "opacity-0"
-            )} />
+
 
             <div className={cn(
                 "relative flex flex-col gap-2 p-3 rounded-xl bg-card/90 backdrop-blur-xl border shadow-lg cursor-pointer",
-                highlighted ? "border-pink-500/50" : "border-white/10"
+                highlighted ? "border-pink-500" : "border-white/10"
             )}>
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 shadow-md shadow-pink-500/20 shrink-0">

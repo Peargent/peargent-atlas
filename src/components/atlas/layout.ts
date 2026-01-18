@@ -260,7 +260,8 @@ export const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'T
         if (parts.length < 2) return toolNode; 
         
         const agentId = parts[0];
-        const index = parseInt(parts[1], 10);
+        let index = parseInt(parts[1], 10);
+        if (isNaN(index)) index = 0;
         
         // Try to find agent among layouted (assigned) agents first
         let agentNode = finalLayoutNodes.find(n => n.id === agentId);
@@ -499,7 +500,7 @@ export const parsePearData = (data: any, customPositions?: Record<string, { x: n
                     // Tools
                     if (agent.tools) {
                         agent.tools.forEach((tool: any, tIdx: number) => {
-                            const toolId = `${agentId}-tool-${tIdx}`;
+                            const toolId = `${agentId}-tool-${tool._id || tIdx}`;
                             addNode('tool', tool, toolId, agentId, 'left-tool-source');
                         });
                     }
@@ -534,7 +535,7 @@ export const parsePearData = (data: any, customPositions?: Record<string, { x: n
                 // Attach tools to unassigned agents
                 if (agent.tools) {
                     agent.tools.forEach((tool: any, tIdx: number) => {
-                        const toolId = `${agentId}-tool-${tIdx}`;
+                        const toolId = `${agentId}-tool-${tool._id || tIdx}`;
                         addNode('tool', tool, toolId, agentId, 'left-tool-source');
                     });
                 }

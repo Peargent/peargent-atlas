@@ -32,6 +32,7 @@ interface AgentData {
 
 interface RouterData {
     name: string;
+    type?: string;
     persona?: string;
     description?: string;
     model?: {
@@ -39,6 +40,75 @@ interface RouterData {
         model_name: string;
     };
     agents?: string[];
+}
+
+// ... (AgentData, PoolData interfaces remain same)
+
+/**
+ * Generate the imports section
+ */
+function generateImports(hasRouter: boolean, hasHistory: boolean, routerType?: string): string {
+    const imports = ['create_agent', 'create_pool', 'create_tool'];
+    
+    if (hasRouter) {
+        if (routerType === 'round_robin') {
+            // Import round_robin_router from its module
+             // Actually, usually it's from peargent._core.router but the __init__ exposes it?
+             // Let's check __init__.py again. Yes, peargent exposes round_robin_router?
+             // No, __init__.py imports it from ._core.router but let's check if it exports it in __all__.
+             // I'll assume it's available or import from fully qualified path if needed.
+             // Wait, the user's library might not export it directly from root.
+             // Let's safe bet: strictly speaking `round_robin_router` is in `peargent._core.router`.
+             // But `create_pool` uses it as default.
+             
+             // If type is round_robin, we might not even need to pass `router` to `create_pool` if it's the default.
+             // But explicitly passing it is fine too if we have a reference.
+        } else {
+             imports.push('create_routing_agent');
+        }
+    }
+    if (hasHistory) {
+        imports.push('create_history');
+    }
+    
+    return `from peargent import ${imports.join(', ')}
+from peargent.models import groq
+${routerType === 'round_robin' ? 'from peargent._core.router import round_robin_router' : ''}`;
+}
+
+// ... 
+
+/**
+ * Generate router creation code
+ */
+function generateRouterCode(router: RouterData): string {
+    const routerType = router.type || 'round_robin';
+    
+    if (routerType === 'round_robin') {
+        return `        # Router\n        self.router = round_robin_router\n`;
+    }
+
+    // For routing_agent / semantic_router
+    const modelCode = getModelCode(router.model);
+    
+    let code = `        # Router (${routerType})\n`;
+    
+    if (router.persona) {
+        code += `        router_persona = """${escapePythonString(router.persona)}"""\n\n`;
+    }
+    
+    code += `        self.router = create_routing_agent(\n`;
+    code += `            name="${router.name}",\n`;
+    code += `            model=${modelCode},\n`;
+    
+    if (router.persona) {
+        code += `            persona=router_persona,\n`;
+    }
+    
+    code += `            agents=self.agents\n`;
+    code += `        )\n`;
+    
+    return code;
 }
 
 interface PoolData {
@@ -111,19 +181,7 @@ function extractUniqueTools(agents: AgentData[]): Map<string, ToolData> {
 /**
  * Generate the imports section
  */
-function generateImports(hasRouter: boolean, hasHistory: boolean): string {
-    const imports = ['create_agent', 'create_pool', 'create_tool'];
-    
-    if (hasRouter) {
-        imports.push('create_routing_agent');
-    }
-    if (hasHistory) {
-        imports.push('create_history');
-    }
-    
-    return `from peargent import ${imports.join(', ')}
-from peargent.models import groq`;
-}
+
 
 /**
  * Extract function body from source_code (removes decorator if present)
@@ -208,28 +266,7 @@ function generateAgentCode(agent: AgentData, index: number): string {
 /**
  * Generate router creation code
  */
-function generateRouterCode(router: RouterData): string {
-    const modelCode = getModelCode(router.model);
-    
-    let code = `        # Router\n`;
-    
-    if (router.persona) {
-        code += `        router_persona = """${escapePythonString(router.persona)}"""\n\n`;
-    }
-    
-    code += `        self.router = create_routing_agent(\n`;
-    code += `            name="${router.name}",\n`;
-    code += `            model=${modelCode},\n`;
-    
-    if (router.persona) {
-        code += `            persona=router_persona,\n`;
-    }
-    
-    code += `            agents=self.agents\n`;
-    code += `        )\n`;
-    
-    return code;
-}
+
 
 /**
  * Generate pool creation code
@@ -276,13 +313,15 @@ export function generatePythonCode(pearData: PearData, className: string = 'Gene
     // Extract unique tools
     const uniqueTools = extractUniqueTools(agents);
     
+    const routerType = poolData.router?.type;
+
     // Build the Python code
     let code = `"""
 Auto-generated from .pear file
 This file reconstructs the agent system configuration
 """
 
-${generateImports(hasRouter, hasHistory)}
+${generateImports(hasRouter, hasHistory, routerType)}
 
 
 `;

@@ -3,7 +3,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/cn';
-import { ChevronDown, Maximize2, X, Minimize2 } from 'lucide-react';
+import { ChevronDown, Maximize2, X, Minimize2, Sparkles, Loader2, Check, ZoomIn, ZoomOut } from 'lucide-react';
+import Editor from 'react-simple-code-editor';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-python';
+import 'prismjs/themes/prism-tomorrow.css'; // Dark theme for code
 
 // Type definitions
 export type FieldType = 'text' | 'textarea' | 'number' | 'select' | 'boolean';
@@ -25,6 +29,11 @@ export interface EditableFieldProps {
     disabled?: boolean;
     mono?: boolean; // Monospace font
     expandable?: boolean; // Show in popup modal
+    aiGeneration?: boolean; // Enable AI generation
+    aiApiEndpoint?: string; // API endpoint for AI generation (default: /api/generate-function)
+    aiResponseField?: string; // Field name in API response (default: 'code')
+    onSuggestMetadata?: (name: string, description: string) => void; // Callback for name/description suggestions
+    syntaxLanguage?: string; // Language for syntax highlighting (e.g., 'python')
 }
 
 // Boolean options for dropdown
@@ -49,12 +58,42 @@ export function EditableField({
     disabled = false,
     mono = false,
     expandable = false,
+    aiGeneration = false,
+    aiApiEndpoint = '/api/generate-function',
+    aiResponseField = 'code',
+    onSuggestMetadata,
+    syntaxLanguage,
 }: EditableFieldProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false); // Expanded modal state
+    const [fontSize, setFontSize] = useState(15); // Font size state
     const [localValue, setLocalValue] = useState(value);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [aiPrompt, setAiPrompt] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [suggestion, setSuggestion] = useState<{ name: string; description: string } | null>(null);
+
+    // For conversation continuity - persist in localStorage
+    const storageKey = `ai-response-id-${label.toLowerCase().replace(/\s+/g, '-')}`;
+    const [aiResponseId, setAiResponseId] = useState<string | null>(() => {
+        // Initialize from localStorage if available
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(storageKey);
+        }
+        return null;
+    });
+
+    // Persist aiResponseId to localStorage when it changes
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            if (aiResponseId) {
+                localStorage.setItem(storageKey, aiResponseId);
+            }
+        }
+    }, [aiResponseId, storageKey]);
+
     const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+    const lineNumbersRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -94,11 +133,15 @@ export function EditableField({
         };
     }, [type]);
 
-    // Sync local value when prop changes
+    // Sync local value when prop changes (but only if it's genuinely different)
     useEffect(() => {
-        setLocalValue(value);
-        hasChangedRef.current = false;
-    }, [value]);
+        // Only sync if the value prop is different from our local value
+        // This prevents cursor reset when our own onChange triggers a prop update
+        if (value !== localValue) {
+            setLocalValue(value);
+            hasChangedRef.current = false;
+        }
+    }, [value]); // Note: intentionally not including localValue to avoid loops
 
     // Focus input when entering edit mode (inline)
     useEffect(() => {
@@ -194,6 +237,99 @@ export function EditableField({
         return String(value);
     };
 
+    // AI Generation handler
+    const handleGenerateWithAI = useCallback(async () => {
+        if (!aiPrompt.trim() || isGenerating) return;
+
+        // Track if this is a first-time generation (no conversation history)
+        const isFirstGeneration = !aiResponseId;
+
+        // Extract current identifier for topic comparison
+        // For functions: extract function name; For other content: extract keywords from text
+        const currentValue = String(localValue || '');
+        const functionNameMatch = currentValue.match(/^def\s+(\w+)/);
+        const currentIdentifier = functionNameMatch
+            ? functionNameMatch[1]  // Function name for code
+            : currentValue.substring(0, 100);  // First 100 chars for text
+
+        setIsGenerating(true);
+        try {
+            const response = await fetch(aiApiEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: aiPrompt,
+                    previousResponseId: aiResponseId  // Pass for continuity
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                console.error('AI Generation error:', data.error);
+                return;
+            }
+
+
+
+            // Get the generated content from the response field
+            const generatedContent = data[aiResponseField];
+            if (generatedContent) {
+                setLocalValue(generatedContent);
+                onChange(generatedContent);
+                setAiPrompt(''); // Clear prompt after successful generation
+            }
+
+            // Store response ID for follow-up requests
+            if (data.responseId) {
+                setAiResponseId(data.responseId);
+            }
+
+            // Show suggestion popup only on first generation OR if topic changed significantly
+            if (data.suggestedName && data.suggestedDescription && onSuggestMetadata) {
+                const suggestedName = data.suggestedName;
+
+                // Extract meaningful keywords (excluding common words)
+                const commonWords = ['get', 'set', 'is', 'has', 'can', 'do', 'make', 'create', 'update', 'delete', 'fetch', 'send', 'check', 'validate', 'process', 'handle', 'calculate', 'convert', 'parse', 'format', 'find', 'search', 'load', 'save', 'read', 'write', 'you', 'are', 'the', 'a', 'an', 'and', 'or', 'for', 'with', 'that', 'this', 'will', 'your', 'agent', 'assistant'];
+
+                const extractKeywords = (name: string) => {
+                    return name.toLowerCase()
+                        .replace(/[^\w\s]/g, '') // Remove punctuation
+                        .split(/[_\s]+/)
+                        .filter(word => word.length > 2 && !commonWords.includes(word));
+                };
+
+                const currentKeywords = extractKeywords(currentIdentifier);
+                const suggestedKeywords = extractKeywords(suggestedName);
+
+                // First generation always shows popup
+                if (isFirstGeneration) {
+                    setSuggestion({
+                        name: data.suggestedName,
+                        description: data.suggestedDescription
+                    });
+                } else {
+                    // For follow-ups, only show if topic changed significantly
+                    const hasOverlap = currentKeywords.length === 0 || suggestedKeywords.length === 0 ||
+                        currentKeywords.some(kw =>
+                            suggestedKeywords.some(skw => skw.includes(kw) || kw.includes(skw))
+                        );
+
+                    if (!hasOverlap) {
+                        setSuggestion({
+                            name: data.suggestedName,
+                            description: data.suggestedDescription
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('AI Generation error:', error);
+        } finally {
+            setIsGenerating(false);
+        }
+    }, [aiPrompt, isGenerating, onChange, aiResponseId, onSuggestMetadata, localValue, aiApiEndpoint, aiResponseField]);
+
     // Theme Classes
     const baseColor = color.replace('text-', '');
     const theme = {
@@ -204,73 +340,269 @@ export function EditableField({
         text: color
     };
 
-    // --- Modal Component ---
-    const ExpandedModal = () => {
-        if (!isExpanded) return null;
+    // --- Expanded Modal (inline, not a component) ---
+    // Compute theme colors for modal
+    const modalBaseColor = color.replace('text-', '');
+    const modalBorderColor = `border-${modalBaseColor}/30`;
+    const modalAccentGlow = modalBaseColor.includes('blue') ? 'shadow-blue-500/10' :
+        modalBaseColor.includes('amber') ? 'shadow-amber-500/10' :
+            modalBaseColor.includes('purple') ? 'shadow-purple-500/10' :
+                modalBaseColor.includes('pink') ? 'shadow-pink-500/10' :
+                    modalBaseColor.includes('emerald') ? 'shadow-emerald-500/10' : 'shadow-primary/10';
 
-        // Derive theme colors from the text color prop
-        // color is usually like "text-blue-400" -> we want "border-blue-500/30" and "bg-blue-500/10"
-        const baseColor = color.replace('text-', '');
-        const borderColor = `border-${baseColor}/20`;
-        const headerBg = `bg-${baseColor}/5`;
-        const iconColor = color; // keep text color for icon
+    // Calculate line count for line numbers
+    const modalLines = String(localValue || '').split('\n');
+    const modalLineCount = Math.max(modalLines.length, 10);
 
-        // Use portal to escape sidebar transform context
-        return createPortal(
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm p-8 animate-in fade-in duration-200">
-                <div
-                    // Reduced size: max-w-3xl and h-[60vh] for a more compact feel
-                    className={cn(
-                        "w-full max-w-3xl h-[60vh] min-h-[400px] bg-card rounded-2xl shadow-2xl flex flex-col overflow-hidden border",
-                        borderColor
-                    )}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Header */}
-                    <div className={cn("flex items-center justify-between px-6 py-4 border-b", borderColor, headerBg)}>
-                        <div className="flex items-center gap-3">
-                            {Icon && <Icon className={cn("w-5 h-5 opacity-80", iconColor)} />}
-                            <span className={cn("font-medium text-lg tracking-tight", iconColor)}>{label}</span>
+    // Render modal via portal (inline, not as component to preserve cursor)
+    const expandedModalContent = isExpanded ? createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-md p-4 md:p-8 animate-in fade-in duration-200">
+            <div
+                className={cn(
+                    "w-full max-w-4xl h-[75vh] min-h-[450px] max-h-[800px] bg-card rounded-xl shadow-2xl flex flex-col overflow-hidden border",
+                    modalBorderColor,
+                    modalAccentGlow
+                )}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className={cn("flex items-center justify-between px-5 py-3.5 border-b bg-muted/50", modalBorderColor)}>
+                    <div className="flex items-center gap-3">
+                        {Icon && (
+                            <div className={cn("p-2 rounded-lg", `bg-${modalBaseColor}/10`)}>
+                                <Icon className={cn("w-4 h-4", color)} />
+                            </div>
+                        )}
+                        <div className="flex flex-col">
+                            <span className={cn("font-semibold text-sm", color)}>{label}</span>
+                            <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">Editor</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {/* Zoom Controls */}
+                        <div className="flex items-center mr-2 border-r border-border/50 pr-2 gap-1">
                             <button
-                                onClick={() => setIsExpanded(false)}
-                                className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
-                                title="Close (Auto-saved)"
+                                onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
+                                className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all"
+                                title="Zoom Out"
                             >
-                                <X className="w-5 h-5" />
+                                <ZoomOut className="w-4 h-4" />
+                            </button>
+                            <span className="text-xs font-mono text-muted-foreground w-6 text-center">{fontSize}</span>
+                            <button
+                                onClick={() => setFontSize(prev => Math.min(24, prev + 1))}
+                                className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all"
+                                title="Zoom In"
+                            >
+                                <ZoomIn className="w-4 h-4" />
                             </button>
                         </div>
-                    </div>
-
-                    {/* Editor Area - kept clean/neutral for readability */}
-                    <div className="flex-1 p-0 relative bg-card/50">
-                        <textarea
-                            autoFocus
-                            value={localValue || ''}
-                            onChange={(e) => handleInputChange(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={placeholder}
-                            className={cn(
-                                "w-full h-full p-6 bg-transparent border-none resize-none focus:ring-0 text-base leading-relaxed text-foreground placeholder-muted-foreground/50",
-                                mono && "font-mono"
-                            )}
-                        />
-                    </div>
-
-                    {/* Footer / Status */}
-                    <div className={cn("px-6 py-3 border-t bg-muted/5 text-xs text-muted-foreground flex justify-between items-center", borderColor)}>
-                        <span>{localValue?.length || 0} characters</span>
-                        <span>Changes save automatically</span>
+                        <button
+                            onClick={() => setIsExpanded(false)}
+                            className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground transition-all"
+                            title="Close"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
 
-                {/* Backdrop click to close */}
-                <div className="absolute inset-0 -z-10" onClick={() => setIsExpanded(false)} />
-            </div>,
-            document.body
-        );
-    };
+                {/* Editor Area with Line Numbers */}
+                <div className="flex-1 flex overflow-hidden bg-background">
+                    {/* Line Numbers */}
+                    {mono && (
+                        <div className="flex-shrink-0 w-12 bg-muted/30 border-r border-border/50 select-none overflow-hidden">
+                            <div className="py-4 pr-3 text-right">
+                                {Array.from({ length: modalLineCount }, (_, i) => (
+                                    <div
+                                        key={i}
+                                        className="text-muted-foreground/40 font-mono"
+                                        style={{
+                                            fontSize: `${Math.max(8, fontSize - 2)}px`,
+                                            lineHeight: `${fontSize * 1.8}px`,
+                                            height: `${fontSize * 1.6}px`
+                                        }}
+                                    >
+                                        {i + 1}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Text Editor */}
+                    <div
+                        className="flex-1 relative overflow-auto font-mono [&::-webkit-scrollbar]:hidden"
+                        style={{
+                            lineHeight: `${fontSize * 1.6}px`,
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none'
+                        }}
+                        onScroll={(e) => {
+                            if (lineNumbersRef.current) {
+                                lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
+                            }
+                        }}
+                    >
+                        {syntaxLanguage ? (
+                            <Editor
+                                value={localValue || ''}
+                                onValueChange={(code) => handleInputChange(code)}
+                                highlight={(code) => Prism.highlight(code, Prism.languages[syntaxLanguage] || Prism.languages.python, syntaxLanguage || 'python')}
+                                padding={16}
+                                textareaId="code-editor-area"
+                                className="w-full bg-transparent border-none focus:outline-none"
+                                style={{
+                                    fontFamily: 'inherit',
+                                    fontSize: `${fontSize}px`,
+                                    lineHeight: `${fontSize * 1.6}px`,
+                                    minHeight: '100%',
+                                }}
+                                textareaClassName="focus:outline-none"
+                            />
+                        ) : (
+                            <textarea
+                                ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                                autoFocus
+                                dir="ltr"
+                                value={localValue || ''}
+                                onChange={(e) => handleInputChange(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                placeholder={placeholder || (mono ? 'Enter your code here...' : 'Start typing...')}
+                                spellCheck={!mono}
+                                className={cn(
+                                    "w-full h-full p-4 bg-transparent border-none resize-none focus:ring-0 focus:outline-none",
+                                    "text-foreground/90 placeholder:text-muted-foreground/30",
+                                    "caret-primary text-left",
+                                    mono && "font-mono tracking-tight",
+                                    "[&::-webkit-scrollbar]:hidden"
+                                )}
+                                style={{
+                                    fontSize: `${fontSize}px`,
+                                    lineHeight: `${fontSize * 1.6}px`,
+                                    tabSize: 4,
+                                    MozTabSize: 4,
+                                    scrollbarWidth: 'none',
+                                    msOverflowStyle: 'none',
+                                }}
+                            />
+                        )}
+
+                        {/* Compact Floating Suggestion Popup - Inside Editor */}
+                        {suggestion && onSuggestMetadata && (
+                            <div className="absolute bottom-4 right-4 z-50 animate-in slide-in-from-bottom-2 fade-in duration-200">
+                                <div className="bg-background/95 backdrop-blur-sm border border-violet-500/30 rounded-xl shadow-xl shadow-violet-500/10 p-3 max-w-xs">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                                        <span className="text-xs font-medium text-violet-400">Update metadata?</span>
+                                    </div>
+                                    <div className="space-y-1 text-xs mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground w-12">Name:</span>
+                                            <span className="font-mono text-violet-300 truncate">{suggestion.name}</span>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-muted-foreground w-12 shrink-0">Desc:</span>
+                                            <span className="text-foreground/70 line-clamp-2">{suggestion.description}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setSuggestion(null);
+                                                // Defer to next tick to avoid setState during render
+                                                setTimeout(() => {
+                                                    onSuggestMetadata?.(suggestion.name, suggestion.description);
+                                                }, 0);
+                                            }}
+                                            className="flex-1 py-1.5 px-3 rounded-lg bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 hover:from-violet-500/30 hover:to-fuchsia-500/30 text-violet-400 hover:text-violet-300 transition-colors text-xs font-medium flex items-center justify-center gap-1.5 border border-violet-500/20"
+                                        >
+                                            <Check className="w-3.5 h-3.5" />
+                                            Apply
+                                        </button>
+                                        <button
+                                            onClick={() => setSuggestion(null)}
+                                            className="py-1.5 px-3 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-xs font-medium"
+                                        >
+                                            Skip
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* AI Generation Prompt */}
+                {aiGeneration && (
+                    <div className={cn("px-5 py-3 border-t bg-muted/20", modalBorderColor)}>
+                        <div className="relative flex gap-2">
+                            <div className="flex-1 relative">
+                                <input
+                                    type="text"
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleGenerateWithAI();
+                                        }
+                                    }}
+                                    placeholder={label === 'Persona' ? "Describe persona to generate..." : "Describe function to generate..."}
+                                    className={cn(
+                                        "w-full bg-background border rounded-lg px-4 py-2.5 text-sm outline-none transition-all",
+                                        "placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-primary/20",
+                                        isGenerating ? "opacity-50 pointer-events-none" : "",
+                                        modalBorderColor
+                                    )}
+                                />
+                                {isGenerating && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleGenerateWithAI}
+                                disabled={isGenerating || !aiPrompt.trim()}
+                                className={cn(
+                                    "px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-all",
+                                    "bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 hover:from-violet-500/20 hover:to-fuchsia-500/20",
+                                    "border border-violet-500/20 text-violet-400 hover:text-violet-300",
+                                    (isGenerating || !aiPrompt.trim()) && "opacity-50 cursor-not-allowed grayscale"
+                                )}
+                            >
+                                <Sparkles className="w-4 h-4" />
+                                {isGenerating ? 'Generating...' : 'Generate'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+
+
+                {/* Footer / Status Bar */}
+                <div className={cn("px-5 py-3 border-t bg-muted/30 flex justify-between items-center gap-4", modalBorderColor)}>
+                    <div className="flex items-center gap-5 text-xs text-muted-foreground font-medium">
+                        <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+                            Auto-save
+                        </span>
+                        <span>{modalLines.length} lines</span>
+                        <span>{String(localValue || '').length} chars</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+                        <kbd className="px-2 py-1 rounded bg-secondary border border-border font-mono text-[11px]">Esc</kbd>
+                        <span>to close</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Backdrop click to close */}
+            <div className="absolute inset-0 -z-10" onClick={() => setIsExpanded(false)} />
+        </div>,
+        document.body
+    ) : null;
 
     // Render select/dropdown
     if (type === 'select' || type === 'boolean') {
@@ -361,7 +693,7 @@ export function EditableField({
                                 </div>
                             </div>
                         </div>
-                        <ExpandedModal />
+                        {expandedModalContent}
                     </>
                 ) : (
                     /* Existing Inline Logic for non-expandable */
@@ -466,10 +798,15 @@ export const FIELD_OPTIONS = {
     ],
     store_type: [
         { value: 'session_buffer', label: 'Session Buffer' },
-        { value: 'file', label: 'File' },
+        { value: 'file', label: 'File System' },
         { value: 'sqlite', label: 'SQLite' },
         { value: 'postgresql', label: 'PostgreSQL' },
         { value: 'redis', label: 'Redis' },
+    ],
+    router_type: [
+        { value: 'round_robin', label: 'Round Robin (Simple)' },
+        { value: 'routing_agent', label: 'Routing Agent (AI)' },
+        { value: 'semantic_router', label: 'Semantic Router (Embedding)' },
     ],
     model_provider: [
         { value: 'GroqModel', label: 'Groq' },
@@ -477,8 +814,16 @@ export const FIELD_OPTIONS = {
         { value: 'OpenAIModel', label: 'OpenAI' },
         { value: 'AnthropicModel', label: 'Anthropic' },
     ],
+    embedding_model_provider: [
+        { value: 'GeminiModel', label: 'Gemini' },
+        { value: 'OpenAIModel', label: 'OpenAI' },
+    ],
     tracing: [
         { value: 'null', label: 'Inherit (Default)' },
+        { value: 'true', label: 'On' },
+        { value: 'false', label: 'Off' },
+    ],
+    pool_tracing: [
         { value: 'true', label: 'On' },
         { value: 'false', label: 'Off' },
     ],

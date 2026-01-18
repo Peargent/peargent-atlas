@@ -72,12 +72,12 @@ const DetailField = ({ label, value, icon: Icon, mono = false }: {
 };
 
 // Agent Details with editable fields
-const AgentDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => (
+const AgentDetails = ({ data, onChange, onBatchChange }: { data: any; onChange: (field: string, value: any) => void; onBatchChange?: (updates: Record<string, any>) => void }) => (
     <div className="space-y-6">
         <Section title="Agent Configuration" icon={Bot} color="text-blue-400">
-            <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} color="text-blue-400" />
+            <EditableField label="Name" value={data.name} type="text" onChange={(v) => onChange('name', v)} color="text-blue-400" />
             <EditableField label="Description" value={data.description} type="textarea" onChange={(v) => onChange('description', v)} placeholder="Agent description..." color="text-blue-400" />
-            <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} icon={User} placeholder="Agent persona/system prompt..." expandable={true} color="text-blue-400" />
+            <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} icon={User} placeholder="Agent persona/system prompt..." expandable={true} color="text-blue-400" aiGeneration={true} aiApiEndpoint="/api/generate-persona" aiResponseField="persona" onSuggestMetadata={(name, description) => { onBatchChange?.({ name, description }); }} />
         </Section>
 
         <Section title="Configuration" icon={Settings} color="text-blue-400">
@@ -87,14 +87,6 @@ const AgentDetails = ({ data, onChange }: { data: any; onChange: (field: string,
             </div>
             <EditableField label="Max Retries" value={data.max_retries} type="number" onChange={(v) => onChange('max_retries', v)} mono placeholder="3" color="text-blue-400" />
             <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-blue-400" />
-            <EditableField label="Auto Context" value={data.auto_manage_context} type="boolean" onChange={(v) => onChange('auto_manage_context', v)} color="text-blue-400" />
-        </Section>
-
-        <Section title="Context Management" icon={Brain} color="text-blue-400">
-            <div className="grid grid-cols-2 gap-3">
-                <EditableField label="Max Messages" value={data.max_context_messages} type="number" onChange={(v) => onChange('max_context_messages', v)} mono placeholder="20" color="text-blue-400" />
-                <EditableField label="Strategy" value={data.context_strategy} type="select" options={FIELD_OPTIONS.context_strategy} onChange={(v) => onChange('context_strategy', v)} color="text-blue-400" />
-            </div>
         </Section>
 
         {data.stop_conditions && (
@@ -106,18 +98,7 @@ const AgentDetails = ({ data, onChange }: { data: any; onChange: (field: string,
             </Section>
         )}
 
-        {data.tools && data.tools.length > 0 && (
-            <Section title={`Tools (${data.tools.length})`} icon={Wrench} color="text-blue-400">
-                <div className="space-y-2">
-                    {data.tools.map((tool: any, i: number) => (
-                        <div key={i} className="bg-blue-500/5 rounded-lg p-3 border border-blue-500/10">
-                            <div className="font-medium text-sm text-foreground">{tool.name}</div>
-                            <div className="text-xs text-muted-foreground mt-1">{tool.description}</div>
-                        </div>
-                    ))}
-                </div>
-            </Section>
-        )}
+
     </div>
 );
 
@@ -134,7 +115,7 @@ const extractFunctionBody = (sourceCode: string | null | undefined): string => {
 };
 
 // Tool Details with editable fields
-const ToolDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => {
+const ToolDetails = ({ data, onChange, onBatchChange }: { data: any; onChange: (field: string, value: any) => void; onBatchChange?: (updates: Record<string, any>) => void }) => {
     // Prefer saved function_body, otherwise extract from source_code
     const functionBody = data.function_body || extractFunctionBody(data.source_code);
 
@@ -144,19 +125,6 @@ const ToolDetails = ({ data, onChange }: { data: any; onChange: (field: string, 
                 <EditableField label="Name" value={data.name} type="text" onChange={(v) => onChange('name', v)} icon={Type} color="text-amber-400" />
                 <EditableField label="Description" value={data.description} type="textarea" onChange={(v) => onChange('description', v)} placeholder="Tool description..." color="text-amber-400" />
             </Section>
-
-            {data.input_parameters && Object.keys(data.input_parameters).length > 0 && (
-                <Section title="Input Parameters" icon={List} color="text-amber-400">
-                    <div className="space-y-2">
-                        {Object.entries(data.input_parameters).map(([key, value]) => (
-                            <div key={key} className="flex items-center justify-between bg-amber-500/5 rounded-lg p-3 border border-amber-500/10">
-                                <span className="font-mono text-sm text-foreground">{key}</span>
-                                <Badge color="bg-amber-500/10 text-amber-400 border-amber-500/20">{String(value)}</Badge>
-                            </div>
-                        ))}
-                    </div>
-                </Section>
-            )}
 
             <Section title="Function Body" icon={Code} color="text-amber-400">
                 <div className="text-[10px] text-muted-foreground mb-2 italic">
@@ -170,10 +138,16 @@ const ToolDetails = ({ data, onChange }: { data: any; onChange: (field: string, 
                         // Store the function body, we'll reconstruct source_code with decorator on export
                         onChange('function_body', v);
                     }}
+                    icon={Code}
                     mono
                     placeholder="def function_name(param: str) -> str:\n    return 'result'"
                     expandable={true}
+                    aiGeneration={true}
+                    syntaxLanguage="python"
                     color="text-amber-400"
+                    onSuggestMetadata={(name, description) => {
+                        onBatchChange?.({ name, description });
+                    }}
                 />
             </Section>
 
@@ -190,42 +164,67 @@ const ToolDetails = ({ data, onChange }: { data: any; onChange: (field: string, 
     );
 };
 
-// Router Details with editable fields
-const RouterDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => (
-    <div className="space-y-6">
-        <Section title="Router Info" icon={Network} color="text-purple-400">
-            <EditableField label="Name" value={data.name} type="text" onChange={(v) => onChange('name', v)} icon={Type} color="text-purple-400" />
-            <EditableField label="Description" value={data.description} type="textarea" onChange={(v) => onChange('description', v)} placeholder="Router description..." color="text-purple-400" />
-            <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} icon={User} placeholder="Router persona..." expandable={true} color="text-purple-400" />
-        </Section>
+// Router Details with editable fields - conditional based on router type
+const RouterDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => {
+    const routerType = data.type || 'round_robin';
+    const isRoundRobin = routerType === 'round_robin';
+    const isSemanticRouter = routerType === 'semantic_router';
+    const isRoutingAgent = routerType === 'routing_agent';
 
-        {data.agents && data.agents.length > 0 && (
-            <Section title={`Connected Agents (${data.agents.length})`} icon={Bot} color="text-purple-400">
-                <div className="flex flex-wrap gap-2">
-                    {data.agents.map((agent: string) => (
-                        <Badge key={agent} color="bg-purple-500/10 text-purple-400 border-purple-500/20">
-                            {agent}
-                        </Badge>
-                    ))}
-                </div>
+    return (
+        <div className="space-y-6">
+            <Section title="Router Info" icon={Network} color="text-purple-400">
+                <EditableField label="Name" value={data.name} type="text" onChange={(v) => onChange('name', v)} icon={Type} color="text-purple-400" />
+                <EditableField label="Type" value={routerType} type="select" options={FIELD_OPTIONS.router_type} onChange={(v) => onChange('type', v)} color="text-purple-400" />
+                {/* Description and Persona only for Routing Agent */}
+                {isRoutingAgent && (
+                    <>
+                        <EditableField label="Description" value={data.description} type="textarea" onChange={(v) => onChange('description', v)} placeholder="Router description..." color="text-purple-400" />
+                        <EditableField label="Persona" value={data.persona} type="textarea" onChange={(v) => onChange('persona', v)} icon={User} placeholder="Router persona..." expandable={true} color="text-purple-400" />
+                    </>
+                )}
             </Section>
-        )}
 
-        <Section title="Configuration" icon={Settings} color="text-purple-400">
-            <div className="space-y-3">
-                <EditableField label="Model Provider" value={data.model?.type || 'GroqModel'} type="select" options={FIELD_OPTIONS.model_provider} onChange={(v) => onChange('model.type', v)} color="text-purple-400" />
-                <EditableField label="Model Name" value={data.model?.model_name || ''} type="text" onChange={(v) => onChange('model.model_name', v)} mono placeholder="e.g. llama-3.3-70b-versatile" color="text-purple-400" />
-            </div>
-            <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-purple-400" />
-        </Section>
+            {data.agents && data.agents.length > 0 && (
+                <Section title={`Connected Agents (${data.agents.length})`} icon={Bot} color="text-purple-400">
+                    <div className="flex flex-wrap gap-2">
+                        {data.agents.map((agent: any, idx: number) => (
+                            <Badge key={agent?.name || agent?._id || idx} color="bg-purple-500/10 text-purple-400 border-purple-500/20">
+                                {typeof agent === 'string' ? agent : agent?.name || 'Unnamed Agent'}
+                            </Badge>
+                        ))}
+                    </div>
+                </Section>
+            )}
 
-        {data.stop_conditions && (
-            <Section title="Stop Conditions" icon={AlertCircle} color="text-purple-400">
-                <EditableField label="Max Steps" value={data.stop_conditions.max_steps} type="number" onChange={(v) => onChange('stop_conditions.max_steps', v)} mono color="text-purple-400" />
-            </Section>
-        )}
-    </div>
-);
+            {/* Configuration section: only show for Semantic Router and Routing Agent */}
+            {!isRoundRobin && (
+                <Section title="Configuration" icon={Settings} color="text-purple-400">
+                    <div className="space-y-3">
+                        <EditableField
+                            label="Model Provider"
+                            value={data.model?.type || 'GeminiModel'}
+                            type="select"
+                            options={isSemanticRouter ? FIELD_OPTIONS.embedding_model_provider : FIELD_OPTIONS.model_provider}
+                            onChange={(v) => onChange('model.type', v)}
+                            color="text-purple-400"
+                        />
+                        <EditableField label="Model Name" value={data.model?.model_name || ''} type="text" onChange={(v) => onChange('model.model_name', v)} mono placeholder="e.g. gemini-2.5-flash" color="text-purple-400" />
+                    </div>
+                    {isRoutingAgent && (
+                        <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-purple-400" />
+                    )}
+                </Section>
+            )}
+
+            {data.stop_conditions && isRoutingAgent && (
+                <Section title="Stop Conditions" icon={AlertCircle} color="text-purple-400">
+                    <EditableField label="Max Steps" value={data.stop_conditions.max_steps} type="number" onChange={(v) => onChange('stop_conditions.max_steps', v)} mono color="text-purple-400" />
+                </Section>
+            )}
+        </div>
+    );
+};
 
 // Pool Details with editable fields
 const PoolDetails = ({ data, onChange }: {
@@ -235,7 +234,11 @@ const PoolDetails = ({ data, onChange }: {
     <div className="space-y-6">
         <Section title="Pool Configuration" icon={Settings} color="text-emerald-400">
             <EditableField label="Max Iterations" value={data.max_iter} type="number" onChange={(v) => onChange('max_iter', v)} mono placeholder="5" color="text-emerald-400" />
-            <EditableField label="Tracing" value={String(data.tracing ?? null)} type="select" options={FIELD_OPTIONS.tracing} onChange={(v) => onChange('tracing', v === 'null' ? null : v === 'true' ? true : false)} color="text-emerald-400" />
+            <div className="space-y-3">
+                <EditableField label="Model Provider" value={data.model?.type || 'GroqModel'} type="select" options={FIELD_OPTIONS.model_provider} onChange={(v) => onChange('model.type', v)} color="text-emerald-400" />
+                <EditableField label="Model Name" value={data.model?.model_name || ''} type="text" onChange={(v) => onChange('model.model_name', v)} mono placeholder="e.g. llama-3.3-70b-versatile" color="text-emerald-400" />
+            </div>
+            <EditableField label="Tracing" value={data.tracing === true ? 'true' : 'false'} type="select" options={FIELD_OPTIONS.pool_tracing} onChange={(v) => onChange('tracing', v === 'true')} color="text-emerald-400" />
         </Section>
 
         {data.agent_names && data.agent_names.length > 0 && (
@@ -249,31 +252,75 @@ const PoolDetails = ({ data, onChange }: {
                 </div>
             </Section>
         )}
+    </div>
+);
 
-        {data.router && (
-            <Section title="Router" icon={Network} color="text-emerald-400">
-                <div className="bg-emerald-500/5 rounded-lg p-3 border border-emerald-500/10">
-                    <div className="font-medium text-sm text-foreground">{data.router.name}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{data.router.description}</div>
-                </div>
+// History Details with editable fields - conditional based on store type
+const HistoryDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => {
+    const storeType = data.store_type?.toLowerCase().replace('historystore', '') || 'session_buffer';
+    const isFile = storeType === 'file';
+    const isSqlite = storeType === 'sqlite';
+    const isPostgresql = storeType === 'postgresql';
+    const isRedis = storeType === 'redis';
+
+    return (
+        <div className="space-y-6">
+            <Section title="History Configuration" icon={History} color="text-pink-400">
+                <EditableField label="Store Type" value={storeType} type="select" options={FIELD_OPTIONS.store_type} onChange={(v) => onChange('store_type', v)} color="text-pink-400" />
+
+                {/* File storage options */}
+                {isFile && (
+                    <EditableField label="Storage Directory" value={data.storage_dir || '.peargent_history'} type="text" onChange={(v) => onChange('storage_dir', v)} mono placeholder=".peargent_history" color="text-pink-400" />
+                )}
+
+                {/* SQLite options */}
+                {isSqlite && (
+                    <>
+                        <EditableField label="Database Path" value={data.database_path || 'peargent_history.db'} type="text" onChange={(v) => onChange('database_path', v)} mono placeholder="peargent_history.db" color="text-pink-400" />
+                        <EditableField label="Table Prefix" value={data.table_prefix || 'peargent'} type="text" onChange={(v) => onChange('table_prefix', v)} mono placeholder="peargent" color="text-pink-400" />
+                    </>
+                )}
+
+                {/* PostgreSQL options - connection_string from .env */}
+                {isPostgresql && (
+                    <>
+                        <div className="text-xs text-muted-foreground px-1 py-2 bg-secondary/30 rounded-lg">
+                            Connection string loaded from <code className="font-mono text-pink-400">DATABASE_URL</code> environment variable
+                        </div>
+                        <EditableField label="Table Prefix" value={data.table_prefix || 'peargent'} type="text" onChange={(v) => onChange('table_prefix', v)} mono placeholder="peargent" color="text-pink-400" />
+                    </>
+                )}
+
+                {/* Redis options - host/port/password from .env */}
+                {isRedis && (
+                    <>
+                        <div className="text-xs text-muted-foreground px-1 py-2 bg-secondary/30 rounded-lg">
+                            Connection details loaded from <code className="font-mono text-pink-400">REDIS_URL</code> environment variable
+                        </div>
+                        <EditableField label="Key Prefix" value={data.key_prefix || 'peargent'} type="text" onChange={(v) => onChange('key_prefix', v)} mono placeholder="peargent" color="text-pink-400" />
+                    </>
+                )}
             </Section>
-        )}
-    </div>
-);
 
-// History Details with editable fields
-const HistoryDetails = ({ data, onChange }: { data: any; onChange: (field: string, value: any) => void }) => (
-    <div className="space-y-6">
-        <Section title="History Configuration" icon={History} color="text-pink-400">
-            <EditableField label="Store Type" value={data.store_type?.toLowerCase().replace('historystore', '') || 'sqlite'} type="select" options={FIELD_OPTIONS.store_type} onChange={(v) => onChange('store_type', v)} color="text-pink-400" />
-        </Section>
-    </div>
-);
+            {/* Context Management - show for all persistent stores */}
+            {(isFile || isSqlite || isPostgresql || isRedis) && (
+                <Section title="Context Management" icon={Settings} color="text-pink-400">
+                    <EditableField label="Auto Manage Context" value={String(data.auto_manage_context ?? true)} type="select" options={[
+                        { value: 'true', label: 'Enabled' },
+                        { value: 'false', label: 'Disabled' },
+                    ]} onChange={(v) => onChange('auto_manage_context', v === 'true')} color="text-pink-400" />
+                    <EditableField label="Max Context Messages" value={data.max_context_messages || 50} type="number" onChange={(v) => onChange('max_context_messages', v)} mono color="text-pink-400" />
+                    <EditableField label="Strategy" value={data.strategy || 'smart'} type="select" options={FIELD_OPTIONS.context_strategy} onChange={(v) => onChange('strategy', v)} color="text-pink-400" />
+                </Section>
+            )}
+        </div>
+    );
+};
 
 // Type icons and colors
 const TYPE_CONFIG = {
     agent: { icon: Bot, color: 'text-blue-400', bgColor: 'bg-gradient-to-br from-blue-500 to-cyan-600', label: 'Agent' },
-    router: { icon: Network, color: 'text-purple-400', bgColor: 'bg-gradient-to-br from-purple-500 to-pink-600', label: 'Router' },
+    router: { icon: Network, color: 'text-purple-400', bgColor: 'bg-purple-500', label: 'Router' },
     tool: { icon: Wrench, color: 'text-amber-400', bgColor: 'bg-gradient-to-br from-amber-500 to-orange-600', label: 'Tool' },
     pool: { icon: Database, color: 'text-emerald-400', bgColor: 'bg-gradient-to-br from-emerald-500 to-teal-600', label: 'Pool' },
     history: { icon: History, color: 'text-pink-400', bgColor: 'bg-gradient-to-br from-pink-500 to-rose-600', label: 'History' },
@@ -319,14 +366,15 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
 
     // Handle field changes with dot notation support
     const handleFieldChange = useCallback((field: string, value: any) => {
+        let updatedNode: any;
         setLocalNode((prev: any) => {
             const updated = { ...prev };
-            const parts = field.split('.');
 
+            // Handle nested paths like 'model.model_name'
+            const parts = field.split('.');
             if (parts.length === 1) {
                 updated[field] = value;
             } else {
-                // Handle nested fields like 'model.model_name' or 'stop_conditions.max_steps'
                 let current = updated;
                 for (let i = 0; i < parts.length - 1; i++) {
                     if (!current[parts[i]]) {
@@ -338,10 +386,42 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                 }
                 current[parts[parts.length - 1]] = value;
             }
+            updatedNode = updated; // Capture the updated state
+            return updated;
+        });
 
-            // Notify parent of update
+        // Notify parent of update after setLocalNode has been called
+        if (onUpdate && updatedNode) {
+            setTimeout(() => onUpdate(updatedNode), 0);
+        }
+    }, [onUpdate]);
+
+    // Handle batch field changes (multiple fields at once)
+    const handleBatchFieldChange = useCallback((updates: Record<string, any>) => {
+        setLocalNode((prev: any) => {
+            const updated = { ...prev };
+
+            for (const [field, value] of Object.entries(updates)) {
+                const parts = field.split('.');
+                if (parts.length === 1) {
+                    updated[field] = value;
+                } else {
+                    let current = updated;
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        if (!current[parts[i]]) {
+                            current[parts[i]] = {};
+                        } else {
+                            current[parts[i]] = { ...current[parts[i]] };
+                        }
+                        current = current[parts[i]];
+                    }
+                    current[parts[parts.length - 1]] = value;
+                }
+            }
+
+            // Defer onUpdate to avoid setState during render
             if (onUpdate) {
-                onUpdate(updated);
+                setTimeout(() => onUpdate(updated), 0);
             }
 
             return updated;
@@ -377,6 +457,12 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
 
     if (localNode && nodeType) {
         const config = TYPE_CONFIG[nodeType];
+
+        // Guard against unknown node types (e.g., 'annotation')
+        if (!config) {
+            return null;
+        }
+
         const Icon = config.icon;
         const nodeName = localNode.name || localNode.label || nodeType;
 
@@ -400,8 +486,8 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
 
         content = (
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} />}
-                {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} />}
+                {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} onBatchChange={handleBatchFieldChange} />}
+                {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} onBatchChange={handleBatchFieldChange} />}
                 {nodeType === 'router' && <RouterDetails data={localNode} onChange={handleFieldChange} />}
                 {nodeType === 'pool' && <PoolDetails data={localNode} onChange={handleFieldChange} />}
                 {nodeType === 'history' && <HistoryDetails data={localNode} onChange={handleFieldChange} />}
@@ -426,7 +512,7 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
             initial={{ width: 0 }}
             animate={{ width }}
             exit={{ width: 0 }}
-            transition={{ type: 'tween', duration: 0.2, ease: 'easeOut' }}
+            transition={{ type: 'tween', duration: isResizing ? 0 : 0.2, ease: 'easeOut' }}
             className={cn(
                 "h-full border-l border-border bg-background/95 backdrop-blur-xl flex flex-col shrink-0",
                 isResizing && "select-none",

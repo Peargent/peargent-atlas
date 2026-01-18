@@ -10,9 +10,10 @@ import AtlasSidebar from '@/components/atlas/AtlasSidebar';
 import { AtlasLogo } from '@/components/atlas/AtlasLogo';
 import NodeDetailsSidebar from '@/components/atlas/NodeDetailsSidebar';
 import { Toast } from "@/components/ui/Toast";
-import { Upload, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, PanelLeftClose, FileCode, PanelRight, PanelRightClose, Sparkles, FolderOpen, Bot, Network, History, Wrench, Layers, Redo2, Undo2, Menu, ArrowLeft, ArrowRight, Settings, Check, ChevronDown, Github, Database } from "lucide-react";
+import { Upload, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, PanelLeftClose, FileCode, PanelRight, PanelRightClose, Sparkles, FolderOpen, Bot, Network, History, Wrench, Layers, Redo2, Undo2, Menu, ArrowLeft, ArrowRight, Settings, Check, ChevronDown } from "lucide-react";
 import MobileBottomSheet from '@/components/atlas/MobileBottomSheet';
-import { createTutorialData, tutorialViewport } from '@/components/atlas/Tutorial';
+import { WelcomeScreen } from '@/components/atlas/WelcomeScreen';
+import { createTutorialData, Tutorial, tutorialViewport } from '@/components/atlas/Tutorial';
 
 
 // Types
@@ -24,8 +25,6 @@ interface AtlasTab {
         nodes: ReactFlowNode[];
         edges: Edge[];
     };
-    selectedNodeId?: string | null;
-    isTutorial?: boolean;
 }
 
 interface DownloadMenuItemProps {
@@ -97,32 +96,18 @@ export default function AtlasPage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Desktop sidebar
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Desktop sidebar
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [detailsNode, setDetailsNode] = useState<any>(null);
     const [detailsNodeType, setDetailsNodeType] = useState<'agent' | 'router' | 'tool' | 'pool' | 'history' | null>(null);
-    const [starCount, setStarCount] = useState<number | null>(null);
-
-    // Fetch GitHub stars
-    useEffect(() => {
-        fetch('https://api.github.com/repos/Peargent/peargent')
-            .then(res => res.json())
-            .then(data => {
-                if (data.stargazers_count) {
-                    setStarCount(data.stargazers_count);
-                }
-            })
-            .catch(err => console.error("Failed to fetch Github stars:", err));
-    }, []);
     const [isDownloadOpen, setIsDownloadOpen] = useState(false);
     const [isAddToolbarCollapsed, setIsAddToolbarCollapsed] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
-    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
     const [rightSidebarWidth, setRightSidebarWidth] = useState(400);
     const [nodePositions, setNodePositions] = useState<Record<string, { x: number, y: number }>>({});
     const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
-    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
     // Refs
     const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -160,35 +145,6 @@ export default function AtlasPage() {
         // Clear future on new action
         futureRef.current[tabId] = [];
     }, []);
-
-    // Draggable Tabs Logic
-    const tabsContainerRef = useRef<HTMLDivElement>(null);
-    const [isDraggingTabs, setIsDraggingTabs] = useState(false);
-    const [startX, setStartX] = useState(0);
-    const [scrollLeft, setScrollLeft] = useState(0);
-
-    const handleTabsMouseDown = (e: React.MouseEvent) => {
-        if (!tabsContainerRef.current) return;
-        setIsDraggingTabs(true);
-        setStartX(e.pageX - tabsContainerRef.current.offsetLeft);
-        setScrollLeft(tabsContainerRef.current.scrollLeft);
-    };
-
-    const handleTabsMouseLeave = () => {
-        setIsDraggingTabs(false);
-    };
-
-    const handleTabsMouseUp = () => {
-        setIsDraggingTabs(false);
-    };
-
-    const handleTabsMouseMove = (e: React.MouseEvent) => {
-        if (!isDraggingTabs || !tabsContainerRef.current) return;
-        e.preventDefault();
-        const x = e.pageX - tabsContainerRef.current.offsetLeft;
-        const walk = (x - startX) * 2; // scroll-fast
-        tabsContainerRef.current.scrollLeft = scrollLeft - walk;
-    };
 
     // Clear node positions when tab changes to prevent cross-tab pollution (since we only use it for handovers)
     useEffect(() => {
@@ -292,49 +248,6 @@ export default function AtlasPage() {
             showNotification("Failed to save state");
         }
     }, [tabs, showNotification]);
-
-    // Auto-save: Debounce saves to localStorage whenever tabs change
-    const isInitialLoad = useRef(true);
-    const lastSavedJson = useRef<string>('');
-
-    useEffect(() => {
-        // Skip auto-save on initial load (we load from localStorage, so no need to save immediately)
-        if (isInitialLoad.current) {
-            isInitialLoad.current = false;
-            // Initialize lastSavedJson with current state
-            const tabsToSave = tabs.filter(tab => tab.data !== null);
-            lastSavedJson.current = JSON.stringify(tabsToSave);
-            return;
-        }
-
-        // Filter out empty/new tabs (those with no data)
-        const tabsToSave = tabs.filter(tab => tab.data !== null);
-        const currentJson = JSON.stringify(tabsToSave);
-
-        // Only trigger unsaved state if content actually changed
-        if (currentJson === lastSavedJson.current) {
-            return; // No actual change, don't update status or save
-        }
-
-        // Mark as unsaved immediately when actual changes are detected
-        setSaveStatus('idle'); // 'idle' = unsaved (gray underline)
-
-        // Debounce: wait 1 second after last change before saving
-        const timeoutId = setTimeout(() => {
-            if (tabsToSave.length > 0) {
-                try {
-                    localStorage.setItem(STORAGE_KEY, currentJson);
-                    lastSavedJson.current = currentJson;
-                    console.log('[Auto-save] Saved to localStorage');
-                    setSaveStatus('saved'); // 'saved' = primary color (stays)
-                } catch (err) {
-                    console.error('[Auto-save] Failed to save:', err);
-                }
-            }
-        }, 1000);
-
-        return () => clearTimeout(timeoutId);
-    }, [tabs]);
 
     const handleDownloadPear = useCallback(() => {
         if (!activeTab?.data) return;
@@ -480,15 +393,12 @@ export default function AtlasPage() {
                 }
             } else if (detailsNodeType === 'tool') {
                 const nodeId = updatedNode._nodeId || '';
-                const uniqueId = updatedNode._id;
                 const isUnassigned = nodeId.startsWith('tool-unassigned-');
                 const isChildOfUnassignedAgent = nodeId.startsWith('agent-unassigned-');
 
                 if (isUnassigned && newData.data.unassigned_tools) {
                     const newTools = newData.data.unassigned_tools.map((tool: any) =>
-                        (uniqueId && tool._id === uniqueId) || (!uniqueId && (tool._originalName || tool.name) === originalName)
-                            ? { ...updatedNode, _originalName: updatedNode.name }
-                            : tool
+                        (tool._originalName || tool.name) === originalName ? { ...updatedNode, _originalName: updatedNode.name } : tool
                     );
                     newData.data = { ...newData.data, unassigned_tools: newTools };
                 } else if (isChildOfUnassignedAgent && newData.data.unassigned_agents) {
@@ -498,7 +408,7 @@ export default function AtlasPage() {
                         if (!nodeId.startsWith(agentId)) return agent;
 
                         const updatedTools = (agent.tools || []).map((tool: any) =>
-                            (uniqueId && tool._id === uniqueId) || (!uniqueId && (tool._originalName || tool.name) === originalName)
+                            (tool._originalName || tool.name) === originalName
                                 ? { ...updatedNode, _originalName: updatedNode.name }
                                 : tool
                         );
@@ -510,7 +420,7 @@ export default function AtlasPage() {
                     const newAgents = targetRoot.agents.map((agent: any) => ({
                         ...agent,
                         tools: agent.tools?.map((tool: any) =>
-                            (uniqueId && tool._id === uniqueId) || (!uniqueId && (tool._originalName || tool.name) === originalName)
+                            (tool._originalName || tool.name) === originalName
                                 ? { ...updatedNode, _originalName: updatedNode.name }
                                 : tool
                         ) || []
@@ -587,27 +497,14 @@ export default function AtlasPage() {
 
     const closeTab = useCallback((e: React.MouseEvent, tabId: string) => {
         e.stopPropagation();
-
-        const newTabs = tabs.filter(t => t.id !== tabId);
-
-        // trigger save of the NEW state (without the closed tab)
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newTabs));
-        } catch (err) {
-            console.error("Failed to save before closing tab", err);
-        }
-
-        setTabs(newTabs);
-
-        if (activeTabId === tabId) {
-            setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
-        }
-
-        if (newTabs.length === 0) {
-            setIsSidebarCollapsed(true);
-            setIsRightSidebarOpen(false);
-        }
-    }, [activeTabId, tabs]);
+        setTabs(prev => {
+            const newTabs = prev.filter(t => t.id !== tabId);
+            if (activeTabId === tabId) {
+                setActiveTabId(newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null);
+            }
+            return newTabs;
+        });
+    }, [activeTabId]);
 
     // Create a new empty tab (shows onboarding in the tab content)
     const handleNewEmptyTab = useCallback(() => {
@@ -623,7 +520,6 @@ export default function AtlasPage() {
         setDetailsNodeType(null);
         setSelectedNodeId(null);
         setIsRightSidebarOpen(false);
-        setIsSidebarCollapsed(true);
     }, []);
 
     // Create a new empty project (sets data on current empty tab or creates new tab)
@@ -650,7 +546,6 @@ export default function AtlasPage() {
             setDetailsNodeType(null);
             setSelectedNodeId(null);
             setIsRightSidebarOpen(false);
-            setIsSidebarCollapsed(false);
         } else {
             // Otherwise create a new tab
             const newTab: AtlasTab = {
@@ -664,28 +559,10 @@ export default function AtlasPage() {
             setDetailsNodeType(null);
             setSelectedNodeId(null);
             setIsRightSidebarOpen(false);
-            setIsSidebarCollapsed(false);
         }
         setIsAddToolbarCollapsed(false);
         // showNotification("Created new project");
     }, [activeTab, activeTabId, showNotification]);
-
-    // Create a Tutorial Project (full tutorial with pool, router, history, agents, tools)
-    const handleTutorial = useCallback(() => {
-        const { newTab, positions } = createTutorialData();
-
-        setTabs(prev => [...prev, newTab]);
-        setActiveTabId(newTab.id);
-        setNodePositions(positions);
-
-        setDetailsNode(null);
-        setDetailsNodeType(null);
-        setSelectedNodeId(null);
-        setIsRightSidebarOpen(false);
-        setIsSidebarCollapsed(false);
-        setIsAddToolbarCollapsed(false);
-
-    }, []);
 
     // Import file into current empty tab
     const handleImportToCurrentTab = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -713,7 +590,6 @@ export default function AtlasPage() {
                     ));
                 }
                 setError(null);
-                setIsSidebarCollapsed(false);
             } catch {
                 setError("Failed to parse file. Is it valid JSON?");
             }
@@ -978,16 +854,16 @@ export default function AtlasPage() {
             let toolToAdd: any = null;
 
             // Collect position remappings to apply later
-            // const positionRemaps: { from: string, to: string }[] = []; // REMOVED
+            const positionRemaps: { from: string, to: string }[] = [];
 
             // Case 1: Move an assigned tool from one agent to another
             if (isAssignedTool) {
-                // Parse the source agent ID and tool suffix from toolId
-                const toolMatch = toolId.match(/^(.+)-tool-(.+)$/);
+                // Parse the source agent ID and tool index from toolId (e.g., "agent-0-tool-1")
+                const toolMatch = toolId.match(/^(.+)-tool-(\d+)$/);
                 if (!toolMatch) return tab;
 
                 const sourceAgentId = toolMatch[1];
-                const toolSuffix = toolMatch[2]; // Could be index or _id
+                const sourceToolIdx = parseInt(toolMatch[2], 10);
 
                 const isProjectData = newData.type === 'project';
 
@@ -1003,24 +879,25 @@ export default function AtlasPage() {
 
                 // Find and REMOVE the source tool from its current agent
                 let sourceTool: any = null;
-
-                // Helper to find tool index by ID or Index
-                const findToolIndex = (tools: any[]) => {
-                    return tools.findIndex((t: any, idx: number) => {
-                        // Check strictly if suffix matches _id, or if matches index string
-                        return (t._id && t._id === toolSuffix) || (String(idx) === toolSuffix);
-                    });
-                };
+                let remainingToolsCount = 0;
 
                 // Check pool agents
                 if (container?.agents) {
                     for (let i = 0; i < container.agents.length; i++) {
-                        if (sourceAgentId === `agent-${i}` && container.agents[i].tools) {
-                            const idx = findToolIndex(container.agents[i].tools);
-                            if (idx !== -1) {
-                                [sourceTool] = container.agents[i].tools.splice(idx, 1);
-                                break;
+                        if (sourceAgentId === `agent-${i}` && container.agents[i].tools?.[sourceToolIdx]) {
+                            // Remove and get the tool
+                            [sourceTool] = container.agents[i].tools.splice(sourceToolIdx, 1);
+                            remainingToolsCount = container.agents[i].tools.length;
+
+                            // Collect position remaps for tools that got re-indexed
+                            // Tools after sourceToolIdx now have index - 1
+                            for (let t = sourceToolIdx; t < remainingToolsCount; t++) {
+                                positionRemaps.push({
+                                    from: `${sourceAgentId}-tool-${t + 1}`,
+                                    to: `${sourceAgentId}-tool-${t}`
+                                });
                             }
+                            break;
                         }
                     }
                 }
@@ -1029,12 +906,19 @@ export default function AtlasPage() {
                 if (!sourceTool && newData.data.unassigned_agents) {
                     for (const agent of newData.data.unassigned_agents) {
                         const uaId = `agent-unassigned-${agent._id}`;
-                        if (sourceAgentId === uaId && agent.tools) {
-                            const idx = findToolIndex(agent.tools);
-                            if (idx !== -1) {
-                                [sourceTool] = agent.tools.splice(idx, 1);
-                                break;
+                        if (sourceAgentId === uaId && agent.tools?.[sourceToolIdx]) {
+                            // Remove and get the tool
+                            [sourceTool] = agent.tools.splice(sourceToolIdx, 1);
+                            remainingToolsCount = agent.tools.length;
+
+                            // Collect position remaps for tools that got re-indexed
+                            for (let t = sourceToolIdx; t < remainingToolsCount; t++) {
+                                positionRemaps.push({
+                                    from: `${sourceAgentId}-tool-${t + 1}`,
+                                    to: `${sourceAgentId}-tool-${t}`
+                                });
                             }
+                            break;
                         }
                     }
                 }
@@ -1075,19 +959,36 @@ export default function AtlasPage() {
                     newData.data = { ...container, agents: newAgents };
                 }
 
-                // Stable ID generation
                 const newToolIndex = currentTools.length;
-                const newToolId = `${agentId}-tool-${toolToAdd._id || newToolIndex}`;
+                const newToolId = `${agentId}-tool-${newToolIndex}`;
 
-                // ATOMIC POSITION UPDATE
+                // ATOMIC POSITION UPDATE: Handle both source remapping and target addition together
                 setNodePositions(prev => {
                     const next = { ...prev };
 
-                    // Capture old position
+                    // 1. Capture the moving tool's old position BEFORE any remapping
                     const oldPosition = next[toolId];
-                    if (next[toolId]) delete next[toolId];
 
-                    // Set new position
+                    // 2. Apply Source Remappings (if any)
+                    // This shifts remaining tools into new indices
+                    // IMPORTANT: Don't overwrite newToolId if it already exists (from a previous operation)
+                    for (const { from, to } of positionRemaps) {
+                        if (next[from] && to !== newToolId) {
+                            next[to] = next[from];
+                        }
+                    }
+                    // Clean up old keys from remapping (except if they're the moving tool or new tool)
+                    for (const { from } of positionRemaps) {
+                        if (from !== toolId && from !== newToolId) {
+                            delete next[from];
+                        }
+                    }
+
+                    // 3. Set New Position for the Moving Tool
+                    // Remove old position entry (if it wasn't already overwritten/deleted)
+                    if (next[toolId] && toolId !== newToolId) delete next[toolId];
+
+                    // Set new position (prefer passed position, then captured old position)
                     if (position) {
                         next[newToolId] = position;
                     } else if (oldPosition) {
@@ -1115,22 +1016,42 @@ export default function AtlasPage() {
                 newData.data.unassigned_agents = unassignedAgents;
 
                 const newToolIndex = currentTools.length;
-                const newToolId = `${agentId}-tool-${toolToAdd._id || newToolIndex}`;
+                const newToolId = `${agentId}-tool-${newToolIndex}`;
 
                 // ATOMIC POSITION UPDATE
                 setNodePositions(prev => {
                     const next = { ...prev };
 
-                    // Capture old position
+                    // 1. Capture old position
                     const oldPosition = next[toolId];
-                    if (next[toolId]) delete next[toolId];
 
-                    // Set new position
+                    // 2. Apply Source Remappings
+                    // IMPORTANT: Don't overwrite newToolId if it already exists
+                    const remappedTargets = new Set<string>();
+                    for (const { from, to } of positionRemaps) {
+                        if (next[from] && to !== newToolId) {
+                            next[to] = next[from];
+                            remappedTargets.add(to);
+                        }
+                    }
+                    for (const { from } of positionRemaps) {
+                        if (from !== toolId && from !== newToolId) {
+                            delete next[from];
+                        }
+                    }
+
+                    // 3. Set New Position
+                    // Only delete the moved tool's old ID if it wasn't overwritten by a remap and isn't the new ID
+                    if (next[toolId] && !remappedTargets.has(toolId) && toolId !== newToolId) {
+                        delete next[toolId];
+                    }
+
                     if (position) {
                         next[newToolId] = position;
                     } else if (oldPosition) {
                         next[newToolId] = oldPosition;
                     }
+
                     return next;
                 });
 
@@ -1792,11 +1713,9 @@ export default function AtlasPage() {
                 const toolId = sourceType === 'tool' ? sourceId : targetId;
                 const agentId = sourceType === 'agent' ? sourceId : targetId;
 
-                // Parse tool suffix (ID or index)
-                const toolMatch = toolId.match(/-tool-(.+)$/);
-                const toolSuffix = toolMatch ? toolMatch[1] : null;
-
-                if (!toolSuffix) return tab;
+                // Parse tool index from toolId (e.g., "agent-0-tool-1" -> tool index 1)
+                const toolIndexMatch = toolId.match(/-tool-(\d+)$/);
+                const expectedToolIndex = toolIndexMatch ? parseInt(toolIndexMatch[1]) : -1;
 
                 // Find the agent and remove the tool
                 const findAndRemoveToolFromPoolAgents = () => {
@@ -1809,23 +1728,16 @@ export default function AtlasPage() {
                             continue;
                         }
 
-                        if (agent.tools) {
-                            const idx = agent.tools.findIndex((t: any, i: number) =>
-                                (t._id && t._id === toolSuffix) || (String(i) === toolSuffix)
-                            );
-
-                            if (idx !== -1) {
-                                const [removedTool] = agent.tools.splice(idx, 1);
-                                if (isProject) {
-                                    if (!newData.data.unassigned_tools) newData.data.unassigned_tools = [];
-                                    const newToolId = removedTool._id || `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-                                    // Make sure removed tool has _id if it was missing (fallback)
-                                    removedTool._id = newToolId;
-                                    newData.data.unassigned_tools.push(removedTool);
-                                    positionTransfers.push({ oldId: toolId, newId: `tool-unassigned-${newToolId}` });
-                                }
-                                return true;
+                        if (agent.tools && expectedToolIndex >= 0 && expectedToolIndex < agent.tools.length) {
+                            const [removedTool] = agent.tools.splice(expectedToolIndex, 1);
+                            if (isProject) {
+                                if (!newData.data.unassigned_tools) newData.data.unassigned_tools = [];
+                                const newToolId = removedTool._id || `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+                                removedTool._id = newToolId;
+                                newData.data.unassigned_tools.push(removedTool);
+                                positionTransfers.push({ oldId: toolId, newId: `tool-unassigned-${newToolId}` });
                             }
+                            return true;
                         }
                     }
                     return false;
@@ -1842,22 +1754,16 @@ export default function AtlasPage() {
                             continue;
                         }
 
-                        if (agent.tools) {
-                            const idx = agent.tools.findIndex((t: any, i: number) =>
-                                (t._id && t._id === toolSuffix) || (String(i) === toolSuffix)
-                            );
-
-                            if (idx !== -1) {
-                                const [removedTool] = agent.tools.splice(idx, 1);
-                                if (isProject) {
-                                    if (!newData.data.unassigned_tools) newData.data.unassigned_tools = [];
-                                    const newToolId = removedTool._id || `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
-                                    removedTool._id = newToolId;
-                                    newData.data.unassigned_tools.push(removedTool);
-                                    positionTransfers.push({ oldId: toolId, newId: `tool-unassigned-${newToolId}` });
-                                }
-                                return true;
+                        if (agent.tools && expectedToolIndex >= 0 && expectedToolIndex < agent.tools.length) {
+                            const [removedTool] = agent.tools.splice(expectedToolIndex, 1);
+                            if (isProject) {
+                                if (!newData.data.unassigned_tools) newData.data.unassigned_tools = [];
+                                const newToolId = removedTool._id || `${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+                                removedTool._id = newToolId;
+                                newData.data.unassigned_tools.push(removedTool);
+                                positionTransfers.push({ oldId: toolId, newId: `tool-unassigned-${newToolId}` });
                             }
+                            return true;
                         }
                     }
                     return false;
@@ -1886,44 +1792,16 @@ export default function AtlasPage() {
                             newData.data.unassigned_agents.push(removedAgent);
                             // Track position transfer for agent and its children
                             positionTransfers.push({ oldId: agentId, newId: `agent-unassigned-${newAgentId}` });
-
-                            // Shift positions for remaining agents that moved index
-                            for (let k = agentIndex; k < pool.agents.length; k++) {
-                                const oldIdx = k + 1;
-                                const newIdx = k;
-                                const oldAgentId = `agent-${oldIdx}`;
-                                const newAgentId = `agent-${newIdx}`;
-                                positionTransfers.push({ oldId: oldAgentId, newId: newAgentId });
-
-                                const agent = pool.agents[k];
-                                if (agent.tools) {
-                                    agent.tools.forEach((t: any, tIdx: number) => {
-                                        const suffix = t._id || tIdx;
-                                        positionTransfers.push({
-                                            oldId: `${oldAgentId}-tool-${suffix}`,
-                                            newId: `${newAgentId}-tool-${suffix}`
-                                        });
-                                    });
-                                }
-                                if (agent.history) {
-                                    positionTransfers.push({
-                                        oldId: `${oldAgentId}-history`,
-                                        newId: `${newAgentId}-history`
-                                    });
-                                }
-                            }
-
-                            // Transfer tool positions for the removed agent
+                            // Transfer tool positions
                             if (removedAgent.tools) {
                                 removedAgent.tools.forEach((t: any, i: number) => {
-                                    const suffix = t._id || i;
                                     positionTransfers.push({
-                                        oldId: `${agentId}-tool-${suffix}`,
-                                        newId: `agent-unassigned-${newAgentId}-tool-${suffix}`
+                                        oldId: `${agentId}-tool-${i}`,
+                                        newId: `agent-unassigned-${newAgentId}-tool-${i}`
                                     });
                                 });
                             }
-                            // Transfer history position for the removed agent
+                            // Transfer history position
                             if (removedAgent.history) {
                                 positionTransfers.push({
                                     oldId: `${agentId}-history`,
@@ -1998,22 +1876,9 @@ export default function AtlasPage() {
             setNodePositions(prev => {
                 const next = { ...prev };
                 for (const { oldId, newId } of positionTransfers) {
-                    // Try to get position from manual map OR from current layout fallback
-                    // Read from 'prev' to avoid issues with chained shifts (A->B, B->C) in the same batch
-                    let pos = prev[oldId];
-
-                    if (!pos && activeTab?.layout?.nodes) {
-                        const node = activeTab.layout.nodes.find(n => n.id === oldId);
-                        if (node) {
-                            pos = node.position;
-                        }
-                    }
-
-                    if (pos) {
-                        next[newId] = pos;
-                        if (next[oldId]) {
-                            delete next[oldId];
-                        }
+                    if (next[oldId]) {
+                        next[newId] = next[oldId];
+                        delete next[oldId];
                     }
                 }
                 return next;
@@ -2192,8 +2057,8 @@ export default function AtlasPage() {
 
                                 // Transfer Tool Positions
                                 agentToDelete.tools?.forEach((tool: any, tIdx: number) => {
-                                    // Use ID-based old tool ID
-                                    const oldToolId = `agent-unassigned-${itemId}-tool-${tool._id || tIdx}`;
+                                    // Verify old tool ID format for unassigned agents
+                                    const oldToolId = `agent-unassigned-${itemId}-tool-${tIdx}`;
                                     const uniqueToolId = tool._id;
                                     const newToolId = `tool-unassigned-${uniqueToolId}`;
 
@@ -2280,9 +2145,18 @@ export default function AtlasPage() {
                             const oldAgentId = `agent-${idx}`;
                             const uniqueId = agent._id;
                             // Agent itself is deleted, so no position transfer for agent
-                            // Transfer Tool Positions
+                            // But transfer Tool positions
+                            agent.tools?.forEach((_: any, tIdx: number) => {
+                                const oldToolId = `${oldAgentId}-tool-${tIdx}`;
+                                // Note: agent.tools are objects, they need _id for new ID
+                                // Wait, tools use index in unassigned list for ID?
+                                // Let's check handleAddTool unassigned logic: tool-unassigned-{_id}
+                                // Yes, using _id.
+                            });
+
+                            // Re-loop to handle proper tools transfer
                             agent.tools?.forEach((tool: any, tIdx: number) => {
-                                const oldToolId = `${oldAgentId}-tool-${tool._id || tIdx}`;
+                                const oldToolId = `${oldAgentId}-tool-${tIdx}`;
                                 const uniqueToolId = tool._id;
                                 const newToolId = `tool-unassigned-${uniqueToolId}`;
                                 if (next[oldToolId]) {
@@ -2311,52 +2185,18 @@ export default function AtlasPage() {
                     }
                 }
                 // 7. Delete Assigned Tool (agent-X-tool-Y)
-                else if (nodeId.includes('-tool-') && !nodeId.startsWith('tool-unassigned-') && !nodeId.startsWith('agent-unassigned-')) {
+                else if (nodeId.includes('-tool-')) {
                     const parts = nodeId.split('-tool-');
                     const agentId = parts[0];
-                    const toolSuffix = parts[1];
+                    const toolIdx = parseInt(parts[1], 10);
                     const agentIdx = parseInt(agentId.split('agent-')[1], 10);
 
-                    if (!isNaN(agentIdx) && poolContainer?.agents && poolContainer.agents[agentIdx]) {
+                    if (!isNaN(agentIdx) && !isNaN(toolIdx) && poolContainer?.agents && poolContainer.agents[agentIdx]) {
                         const agent = poolContainer.agents[agentIdx];
-                        if (agent.tools) {
-                            const idx = agent.tools.findIndex((t: any, i: number) =>
-                                (t._id && t._id === toolSuffix) || (String(i) === toolSuffix)
-                            );
-                            if (idx !== -1) {
-                                agent.tools.splice(idx, 1);
-                                if (agent.tools.length === 0) delete agent.tools;
-                                anyNodeDeleted = true;
-                            }
-                        }
-                    }
-                }
-                // 7.5 Delete Tool from Unassigned Agent (agent-unassigned-X-tool-Y)
-                else if (nodeId.includes('-tool-') && nodeId.startsWith('agent-unassigned-')) {
-                    const parts = nodeId.split('-tool-');
-                    const agentId = parts[0]; // agent-unassigned-ID
-                    const toolSuffix = parts[1];
-                    const agentUniqueId = agentId.replace('agent-unassigned-', '');
-
-                    if (currentData.unassigned_agents) {
-                        const agentIndex = currentData.unassigned_agents.findIndex((a: any) =>
-                            a._id === agentUniqueId || `agent-unassigned-${a._id}` === agentId
-                        );
-
-                        if (agentIndex !== -1) {
-                            const agent = currentData.unassigned_agents[agentIndex];
-                            if (agent.tools) {
-                                const idx = agent.tools.findIndex((t: any, i: number) =>
-                                    (t._id && t._id === toolSuffix) || (String(i) === toolSuffix)
-                                );
-                                if (idx !== -1) {
-                                    agent.tools.splice(idx, 1);
-                                    if (agent.tools.length === 0) delete agent.tools;
-                                    anyNodeDeleted = true;
-                                    // Update the agent in the array
-                                    currentData.unassigned_agents[agentIndex] = agent;
-                                }
-                            }
+                        if (agent.tools && agent.tools[toolIdx]) {
+                            agent.tools.splice(toolIdx, 1);
+                            if (agent.tools.length === 0) delete agent.tools;
+                            anyNodeDeleted = true;
                         }
                     }
                 }
@@ -2595,15 +2435,9 @@ export default function AtlasPage() {
 
                     // Agent Tool
                     if (id.includes('-tool-')) {
-                        const toolMatch = id.match(/-tool-(.+)$/);
-                        const toolSuffix = toolMatch ? toolMatch[1] : parts[3];
-
-                        // Find by _id OR index
-                        if (agent.tools) {
-                            const tool = agent.tools.find((t: any, idx: number) =>
-                                (t._id && t._id === toolSuffix) || String(idx) === toolSuffix
-                            );
-                            if (tool) return { node: tool, type: 'tool' };
+                        const toolIdx = parseInt(parts[3], 10);
+                        if (!isNaN(toolIdx) && agent.tools && agent.tools[toolIdx]) {
+                            return { node: agent.tools[toolIdx], type: 'tool' };
                         }
                     }
 
@@ -2636,14 +2470,9 @@ export default function AtlasPage() {
 
                     // Unassigned Agent Tool
                     if (id.includes('-tool-')) {
-                        const toolMatch = id.match(/-tool-(.+)$/);
-                        const toolSuffix = toolMatch ? toolMatch[1] : null;
-
-                        if (toolSuffix && agent.tools) {
-                            const tool = agent.tools.find((t: any, idx: number) =>
-                                (t._id && t._id === toolSuffix) || String(idx) === toolSuffix
-                            );
-                            if (tool) return { node: tool, type: 'tool' };
+                        const toolIdx = parseInt(id.split('-tool-')[1], 10);
+                        if (!isNaN(toolIdx) && agent.tools && agent.tools[toolIdx]) {
+                            return { node: agent.tools[toolIdx], type: 'tool' };
                         }
                     }
 
@@ -2754,8 +2583,10 @@ export default function AtlasPage() {
             <div className="flex-1 relative h-full flex flex-col min-w-0">
                 <Toast message={toastMessage} isVisible={showToast} onClose={() => setShowToast(false)} />
 
+
+
                 {/* Top Bar */}
-                <div className="border-b border-white/10 bg-card/40 backdrop-blur-xl flex flex-col md:flex-row items-center px-0 md:px-4 gap-0 md:gap-2 z-40 shrink-0 md:h-[55px] transition-all shadow-sm">
+                <div className="border-b border-white/10 bg-card/40 backdrop-blur-xl flex flex-col md:flex-row items-center px-0 md:px-4 gap-0 md:gap-2 z-40 shrink-0 md:h-[60px] transition-all shadow-sm">
                     {/* Mobile Header */}
                     <div className="flex items-center justify-between w-full md:hidden px-4 py-3 border-b border-white/5">
                         {/* Left: Actions */}
@@ -2780,118 +2611,27 @@ export default function AtlasPage() {
                     </div>
 
                     {/* Tabs */}
-                    <div
-                        ref={tabsContainerRef}
-                        onMouseDown={handleTabsMouseDown}
-                        onMouseLeave={handleTabsMouseLeave}
-                        onMouseUp={handleTabsMouseUp}
-                        onMouseMove={handleTabsMouseMove}
-                        className="flex-1 flex items-end gap-0.5 overflow-x-auto w-full md:w-auto [&::-webkit-scrollbar]:hidden h-full min-h-[45px] z-10 cursor-grab active:cursor-grabbing"
-                    >
+                    <div className="flex-1 flex items-end gap-0.5 overflow-x-auto w-full md:w-auto scrollbar-hide h-full z-10">
                         <AnimatePresence initial={false}>
                             {tabs.map((tab) => (
                                 <motion.div
-                                    layout
                                     key={tab.id}
                                     initial={{ opacity: 0, width: 0 }}
                                     animate={{ opacity: 1, width: 'auto' }}
-                                    exit={{ opacity: 0, width: 0, transition: { duration: 0.15 } }}
-                                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                                    exit={{ opacity: 0, width: 0 }}
                                     className={cn(
                                         "group flex items-center gap-2 px-4 py-2 border-r border-r-border/50 text-sm font-medium transition-all cursor-pointer select-none min-w-[120px] max-w-[200px] shrink-0 h-full relative",
                                         activeTabId === tab.id
                                             ? "bg-transparent text-foreground pt-2.5 pb-2"
                                             : "bg-transparent text-muted-foreground hover:bg-white/5 hover:text-foreground pt-2.5 pb-2"
                                     )}
-                                    onClick={() => {
-                                        // Don't do anything if clicking the already active tab
-                                        if (activeTabId === tab.id) return;
-
-                                        // Save current selection to the current tab before switching
-                                        if (activeTabId && selectedNodeId) {
-                                            setTabs(prev => prev.map(t =>
-                                                t.id === activeTabId ? { ...t, selectedNodeId } : t
-                                            ));
-                                        }
-
-                                        // Switch to new tab
-                                        setActiveTabId(tab.id);
-
-                                        // Restore the target tab's saved selection or auto-select
-                                        if (tab.selectedNodeId) {
-                                            // Restore saved selection
-                                            setSelectedNodeId(tab.selectedNodeId);
-                                            // Find and open the node details
-                                            if (tab.layout?.nodes) {
-                                                const node = tab.layout.nodes.find(n => n.id === tab.selectedNodeId);
-                                                if (node) {
-                                                    const nodeType = node.type as 'agent' | 'router' | 'tool' | 'pool' | 'history';
-                                                    const originalData = (node.data as any).originalData || node.data;
-                                                    setDetailsNode({ ...originalData, _nodeId: node.id });
-                                                    setDetailsNodeType(nodeType);
-                                                }
-                                            }
-                                        } else if (tab.data) {
-                                            // Auto-select in priority: agent > pool > other
-                                            let autoSelectId: string | null = null;
-                                            let autoSelectNode: any = null;
-                                            let autoSelectType: 'agent' | 'router' | 'tool' | 'pool' | 'history' | null = null;
-
-                                            if (tab.layout?.nodes && tab.layout.nodes.length > 0) {
-                                                const nodes = tab.layout.nodes;
-                                                // Priority 1: Agent
-                                                const agentNode = nodes.find(n => n.type === 'agent');
-                                                if (agentNode) {
-                                                    autoSelectId = agentNode.id;
-                                                    autoSelectNode = (agentNode.data as any).originalData || agentNode.data;
-                                                    autoSelectType = 'agent';
-                                                } else {
-                                                    // Priority 2: Pool
-                                                    const poolNode = nodes.find(n => n.type === 'pool');
-                                                    if (poolNode) {
-                                                        autoSelectId = poolNode.id;
-                                                        autoSelectNode = (poolNode.data as any).originalData || poolNode.data;
-                                                        autoSelectType = 'pool';
-                                                    } else {
-                                                        // Priority 3: Any other node
-                                                        const anyNode = nodes[0];
-                                                        if (anyNode) {
-                                                            autoSelectId = anyNode.id;
-                                                            autoSelectNode = (anyNode.data as any).originalData || anyNode.data;
-                                                            autoSelectType = anyNode.type as any;
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            if (autoSelectId && autoSelectNode) {
-                                                setSelectedNodeId(autoSelectId);
-                                                setDetailsNode({ ...autoSelectNode, _nodeId: autoSelectId });
-                                                setDetailsNodeType(autoSelectType);
-                                            } else {
-                                                // No nodes to select
-                                                setSelectedNodeId(null);
-                                                setDetailsNode(null);
-                                            }
-                                        } else {
-                                            // Tab has no data
-                                            setSelectedNodeId(null);
-                                            setDetailsNode(null);
-                                        }
-                                    }}
+                                    onClick={() => setActiveTabId(tab.id)}
                                 >
                                     <span className="truncate flex-1">{tab.name}</span>
-
-                                    {/* Active tab bottom border - color indicates save state */}
                                     {activeTabId === tab.id && (
                                         <motion.div
                                             layoutId="activeTabBottomBorder"
-                                            className={cn(
-                                                "absolute bottom-0 left-0 right-0 h-[2px] z-10 transition-colors duration-300",
-                                                saveStatus === 'saved'
-                                                    ? "bg-primary"
-                                                    : "bg-muted-foreground/50"
-                                            )}
+                                            className="absolute bottom-0 left-0 right-0 h-[2px] bg-primary z-10 shadow-[0_0_10px_2px_rgba(var(--primary),0.5)]"
                                         />
                                     )}
                                     <button
@@ -2920,34 +2660,44 @@ export default function AtlasPage() {
                     </div>
 
                     {/* Desktop Actions */}
-                    <div className="hidden md:flex items-center h-full gap-2 bg-card/50 backdrop-blur-sm z-20 px-2">
-                        <div className="relative">
+                    <div className="hidden md:flex items-center h-full gap-0 bg-card/50 backdrop-blur-sm z-20">
+                        <button
+                            onClick={handleSave}
+                            className="flex items-center justify-center w-fit p-4 h-full hover:bg-white/5 hover:text-foreground transition-all group border-r border-border/50 border-l"
+                            title="Save"
+                        >
+                            <Save className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-all mr-2" />
+                            <span>Save</span>
+                        </button>
+
+                        <div className="relative" ref={downloadMenuRef}>
                             <button
-                                onClick={(e) => {
-                                    if (!activeTab?.data) {
-                                        showNotification("Create an atlas first");
-                                        return;
-                                    }
-                                    handleDownloadPear();
-                                }}
-                                className="flex items-center justify-center w-fit px-4 py-2 h-9 hover:bg-white/5 text-foreground transition-all group border rounded-sm border-white/10 text-sm font-medium"
-                                title="Download .pear file"
+                                onClick={() => setIsDownloadOpen(!isDownloadOpen)}
+                                className={cn(
+                                    "flex items-center justify-center w-fit p-4 h-full hover:bg-white/5 hover:text-foreground transition-all group border-r border-border/50",
+                                    isDownloadOpen && "bg-white/5 text-foreground"
+                                )}
+                                title="Download"
                             >
                                 <Download className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-all mr-2" />
                                 <span>Download</span>
                             </button>
-                        </div>
 
-                        <a
-                            href="https://github.com/Peargent/peargent"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center w-fit px-5 h-9 bg-black hover:bg-neutral-900 text-white transition-all group rounded-sm text-sm font-medium border border-white/10"
-                            title="Star on GitHub"
-                        >
-                            <Github className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium">{starCount !== null ? starCount.toLocaleString() : 'Star'}</span>
-                        </a>
+                            <AnimatePresence>
+                                {isDownloadOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                        className="absolute top-full right-0 mt-1 min-w-[180px] bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl flex flex-col p-1.5 z-50 origin-top-right"
+                                    >
+                                        {downloadMenuItems.map((item, i) => (
+                                            <DownloadMenuItem key={i} {...item} />
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
                     </div>
                 </div>
 
@@ -3002,7 +2752,6 @@ export default function AtlasPage() {
                                 };
                                 setDetailsNode(nodeWithOriginal);
                                 setDetailsNodeType(nodeType);
-                                setIsRightSidebarOpen(true);
                             }}
                             onPaneClick={() => {
                                 setIsDownloadOpen(false);
@@ -3022,157 +2771,53 @@ export default function AtlasPage() {
                             nodePositions={nodePositions}
                             onNodePositionChange={handleNodePositionChange}
                             onDisconnect={handleDisconnect}
-                            isTutorial={activeTab?.isTutorial}
-                            initialViewport={activeTab?.isTutorial ? tutorialViewport : undefined}
                         />
 
                         {/* In-Tab Onboarding - shows when tab has no data */}
                         {activeTab && activeTab.data === null && (
-                            <div className="absolute inset-0 z-10 overflow-y-auto">
-                                <div className="min-h-full flex items-center justify-center py-8">
-                                    <div className="text-center w-full max-w-5xl mx-auto px-4">
-                                        <div className="max-w-md mx-auto">
-                                            <h2
-                                                className="text-5xl font-normal mb-2 text-foreground"
-                                                style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
-                                            >
-                                                Create with <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas
-                                            </h2>
-                                            <p className="text-muted-foreground text-sm mb-8">
-                                                Visual builder for AI agent systems
-                                            </p>
+                            <div className="absolute inset-0 flex items-center justify-center z-20 bg-background/80 backdrop-blur-sm">
+                                <div className="text-center max-w-md mx-auto px-4">
+                                    <h2
+                                        className="text-3xl font-normal mb-2 text-foreground"
+                                        style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
+                                    >
+                                        Get Started
+                                    </h2>
+                                    <p className="text-muted-foreground text-sm mb-8">
+                                        Choose how you want to begin
+                                    </p>
 
-                                            <div className="grid grid-cols-2 gap-4 text-left">
-                                                {/* Build from Scratch */}
-                                                <button
-                                                    onClick={handleNewProject}
-                                                    className="group w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-emerald-500/15 transition-all duration-300 flex flex-col justify-between h-[160px] relative overflow-hidden text-left items-start"
-                                                >
-                                                    <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                        <Sparkles className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <div className="relative z-10">
-                                                        <h3 className="font-semibold text-foreground mb-1">Create Atlas</h3>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">Build your agent system visually, node by node</p>
-                                                    </div>
-                                                </button>
-
-                                                {/* Import File */}
-                                                <label className="group w-full p-4 rounded-xl bg-card/50 border border-border hover:border-primary/30 hover:bg-card/80 transition-all duration-300 flex flex-col justify-between h-[160px] cursor-pointer relative overflow-hidden">
-                                                    <input
-                                                        type="file"
-                                                        accept=".pear,.json"
-                                                        onChange={handleImportToCurrentTab}
-                                                        className="hidden"
-                                                    />
-                                                    <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                        <FolderOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                                    </div>
-                                                    <div className="relative z-10">
-                                                        <h3 className="font-semibold text-foreground mb-1">Import .pear File</h3>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">Load an existing agent configuration</p>
-                                                    </div>
-                                                </label>
+                                    <div className="flex flex-col gap-3">
+                                        {/* Build from Scratch */}
+                                        <button
+                                            onClick={handleNewProject}
+                                            className="group w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-emerald-500/15 transition-all duration-300 text-left flex items-center gap-4"
+                                        >
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <Sparkles className="w-5 h-5 text-white" />
                                             </div>
-
-                                            {/* <div className="mt-8 text-xs text-muted-foreground/50 font-medium tracking-wide">
-                                                or drag and drop a .pear file anywhere
-                                            </div> */}
-                                        </div>
-
-                                        {/* Tutorial Button */}
-                                        <div className="mt-6 mb-8 flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-                                            <button
-                                                onClick={handleTutorial}
-                                                className="group relative px-6 py-3 rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 border border-primary/20 hover:border-primary/40"
-                                            >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-emerald-500/10 to-primary/10 transition-opacity opacity-50 group-hover:opacity-100" />
-                                                <div className="relative flex items-center gap-3">
-                                                    <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
-                                                        <Sparkles className="w-4 h-4" />
-                                                    </div>
-                                                    <span className="font-medium text-foreground text-sm" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '1.1rem' }}>
-                                                        Example
-                                                    </span>
-                                                    <span className="text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity">
-                                                        Click to load example
-                                                    </span>
-                                                </div>
-                                            </button>
-                                        </div>
-
-                                        {/* How to use Atlas Section */}
-                                        <div className="mt-4 text-left animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                                            <h3 className="text-3xl text-center mb-8 text-foreground/80" style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>
-                                                How to use Atlas
-                                            </h3>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                                {/* Agent Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3 text-blue-400">
-                                                        <Bot className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Agent Node</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Autonomous AI entity configured with a model and instructions to execute specific tasks.
-                                                    </p>
-                                                </div>
-
-                                                {/* Pool Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-3 text-emerald-400">
-                                                        <Database className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Agent Pool</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Orchestration layer that manages multiple agents and delegates tasks efficiently.
-                                                    </p>
-                                                </div>
-
-                                                {/* Tool Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mb-3 text-amber-400">
-                                                        <Wrench className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Tool Node</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Custom Python functions that agents can execute to interact with external systems.
-                                                    </p>
-                                                </div>
-
-                                                {/* Router Node */}
-                                                <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3 text-purple-400">
-                                                        <Network className="w-4 h-4" />
-                                                    </div>
-                                                    <h4 className="text-sm font-semibold text-foreground mb-1">Router Node</h4>
-                                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Intelligent routing layer that directs user intent to the most appropriate agent.
-                                                    </p>
-                                                </div>
+                                            <div>
+                                                <h3 className="font-semibold text-foreground">Build from Scratch</h3>
+                                                <p className="text-xs text-muted-foreground">Create agents visually</p>
                                             </div>
+                                        </button>
 
-                                            {/* Export & Run */}
-                                            <div className="rounded-xl bg-gradient-to-r from-primary/5 via-card/50 to-primary/5 border border-white/10 p-5 flex flex-col md:flex-row items-center gap-6 justify-between">
-                                                <div className="flex gap-4 items-center">
-                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                                                        <Download className="w-5 h-5 text-primary" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="text-sm font-semibold text-foreground">Export & Run</h4>
-                                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                                            Download your altas as a .pear file and run it directly with the Peargent CLI.
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="shrink-0 font-mono text-xs bg-muted px-3 py-1.5 rounded-md border border-border text-muted-foreground">
-                                                    peargent run my-agent.pear
-                                                </div>
+                                        {/* Import File */}
+                                        <label className="group w-full p-4 rounded-xl bg-card/50 border border-border hover:border-primary/30 hover:bg-card/80 transition-all duration-300 text-left flex items-center gap-4 cursor-pointer">
+                                            <input
+                                                type="file"
+                                                accept=".pear,.json"
+                                                onChange={handleImportToCurrentTab}
+                                                className="hidden"
+                                            />
+                                            <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                                <FolderOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                                             </div>
-                                        </div>
+                                            <div>
+                                                <h3 className="font-semibold text-foreground">Import .pear File</h3>
+                                                <p className="text-xs text-muted-foreground">Load existing configuration</p>
+                                            </div>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -3190,120 +2835,116 @@ export default function AtlasPage() {
                         </div>
 
                         {/* Undo/Redo Buttons */}
-                        {activeTab?.data && (
-                            <div className="absolute top-4 left-16 z-40 hidden md:flex items-center gap-1">
-                                <button
-                                    onClick={handleUndo}
-                                    className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
-                                    title="Undo (Ctrl+Z)"
-                                >
-                                    <Undo2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={handleRedo}
-                                    className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
-                                    title="Redo (Ctrl+Shift+Z)"
-                                >
-                                    <Redo2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
+                        <div className="absolute top-4 left-16 z-40 hidden md:flex items-center gap-1">
+                            <button
+                                onClick={handleUndo}
+                                className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
+                                title="Undo (Ctrl+Z)"
+                            >
+                                <Undo2 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={handleRedo}
+                                className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
+                                title="Redo (Ctrl+Shift+Z)"
+                            >
+                                <Redo2 className="w-4 h-4" />
+                            </button>
+                        </div>
 
 
                         {/* Settings Dropdown */}
-                        {activeTab?.data && (
-                            <div className="absolute top-4 right-16 z-40 hidden md:block" ref={settingsRef}>
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                        className={cn(
-                                            "p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5",
-                                            isSettingsOpen && "bg-white/10 text-foreground"
-                                        )}
-                                        title="Settings"
-                                    >
-                                        <Settings className="w-5 h-5" />
-                                    </button>
+                        <div className="absolute top-4 right-16 z-40 hidden md:block" ref={settingsRef}>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                    className={cn(
+                                        "p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5",
+                                        isSettingsOpen && "bg-white/10 text-foreground"
+                                    )}
+                                    title="Settings"
+                                >
+                                    <Settings className="w-5 h-5" />
+                                </button>
 
-                                    <AnimatePresence>
-                                        {isSettingsOpen && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                                                className="absolute top-full right-0 mt-2 w-56 bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl flex flex-col p-1.5 z-50 origin-top-right"
-                                            >
-                                                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                                    Global Settings
-                                                </div>
+                                <AnimatePresence>
+                                    {isSettingsOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                                            className="absolute top-full right-0 mt-2 w-56 bg-card/95 backdrop-blur-xl border border-border rounded-xl shadow-2xl flex flex-col p-1.5 z-50 origin-top-right"
+                                        >
+                                            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                Global Settings
+                                            </div>
 
-                                                <button
-                                                    onClick={() => {
-                                                        if (!activeTabId) return;
-                                                        setTabs(prev => prev.map(tab => {
-                                                            if (tab.id !== activeTabId) return tab;
-                                                            const currentSettings = tab.data.settings || {};
-                                                            const isCurrentlyEnabled = currentSettings.tracing !== false;
-                                                            const newTracingValue = !isCurrentlyEnabled;
+                                            <button
+                                                onClick={() => {
+                                                    if (!activeTabId) return;
+                                                    setTabs(prev => prev.map(tab => {
+                                                        if (tab.id !== activeTabId) return tab;
+                                                        const currentSettings = tab.data.settings || {};
+                                                        const isCurrentlyEnabled = currentSettings.tracing !== false;
+                                                        const newTracingValue = !isCurrentlyEnabled;
 
-                                                            // Prepare updated data
-                                                            const updatedData = {
-                                                                ...tab.data,
-                                                                settings: {
-                                                                    ...currentSettings,
+                                                        // Prepare updated data
+                                                        const updatedData = {
+                                                            ...tab.data,
+                                                            settings: {
+                                                                ...currentSettings,
+                                                                tracing: newTracingValue
+                                                            }
+                                                        };
+
+                                                        // Also sync to pool's tracing if pool exists
+                                                        const isProject = tab.data.type === 'project';
+                                                        if (isProject && updatedData.data?.pool) {
+                                                            updatedData.data = {
+                                                                ...updatedData.data,
+                                                                pool: {
+                                                                    ...updatedData.data.pool,
                                                                     tracing: newTracingValue
                                                                 }
                                                             };
-
-                                                            // Also sync to pool's tracing if pool exists
-                                                            const isProject = tab.data.type === 'project';
-                                                            if (isProject && updatedData.data?.pool) {
-                                                                updatedData.data = {
-                                                                    ...updatedData.data,
-                                                                    pool: {
-                                                                        ...updatedData.data.pool,
-                                                                        tracing: newTracingValue
-                                                                    }
-                                                                };
-                                                            } else if (!isProject && updatedData.data) {
-                                                                updatedData.data = {
-                                                                    ...updatedData.data,
-                                                                    tracing: newTracingValue
-                                                                };
-                                                            }
-
-                                                            return { ...tab, data: updatedData };
-                                                        }));
-
-                                                        // Update detailsNode in real-time if viewing a pool
-                                                        if (detailsNodeType === 'pool' && detailsNode) {
-                                                            const currentSettings = activeTab?.data?.settings || {};
-                                                            const isCurrentlyEnabled = currentSettings.tracing !== false;
-                                                            setDetailsNode((prev: any) => ({
-                                                                ...prev,
-                                                                tracing: !isCurrentlyEnabled
-                                                            }));
+                                                        } else if (!isProject && updatedData.data) {
+                                                            updatedData.data = {
+                                                                ...updatedData.data,
+                                                                tracing: newTracingValue
+                                                            };
                                                         }
-                                                    }}
-                                                    className="flex items-center justify-between px-3 py-2 hover:bg-white/5 rounded-lg text-sm transition-colors group"
-                                                >
-                                                    <span className="text-foreground group-hover:text-foreground/90">Tracing Enabled</span>
+
+                                                        return { ...tab, data: updatedData };
+                                                    }));
+
+                                                    // Update detailsNode in real-time if viewing a pool
+                                                    if (detailsNodeType === 'pool' && detailsNode) {
+                                                        const currentSettings = activeTab?.data?.settings || {};
+                                                        const isCurrentlyEnabled = currentSettings.tracing !== false;
+                                                        setDetailsNode((prev: any) => ({
+                                                            ...prev,
+                                                            tracing: !isCurrentlyEnabled
+                                                        }));
+                                                    }
+                                                }}
+                                                className="flex items-center justify-between px-3 py-2 hover:bg-white/5 rounded-lg text-sm transition-colors group"
+                                            >
+                                                <span className="text-foreground group-hover:text-foreground/90">Tracing Enabled</span>
+                                                <div className={cn(
+                                                    "w-9 h-5 rounded-full relative transition-colors duration-200",
+                                                    (activeTab?.data?.settings?.tracing !== false) ? "bg-primary" : "bg-muted"
+                                                )}>
                                                     <div className={cn(
-                                                        "w-9 h-5 rounded-full relative transition-colors duration-200",
-                                                        (activeTab?.data?.settings?.tracing !== false) ? "bg-primary" : "bg-muted"
-                                                    )}>
-                                                        <div className={cn(
-                                                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200",
-                                                            (activeTab?.data?.settings?.tracing !== false) ? "left-[18px]" : "left-0.5"
-                                                        )} />
-                                                    </div>
-                                                </button>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
+                                                        "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200",
+                                                        (activeTab?.data?.settings?.tracing !== false) ? "left-[18px]" : "left-0.5"
+                                                    )} />
+                                                </div>
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
-                        )}
+                        </div>
 
                         {/* Right Sidebar Toggle - only show when closed */}
                         {!isRightSidebarOpen && (
@@ -3319,24 +2960,22 @@ export default function AtlasPage() {
                         )}
 
                         {/* Undo/Redo Buttons - Mobile: Top-Left Canvas, Desktop: Hidden (handled in sidebar toggle area) */}
-                        {activeTab?.data && (
-                            <div className="absolute top-4 left-4 z-40 flex md:hidden items-center gap-1">
-                                <button
-                                    onClick={handleUndo}
-                                    className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
-                                    title="Undo"
-                                >
-                                    <Undo2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={handleRedo}
-                                    className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
-                                    title="Redo"
-                                >
-                                    <Redo2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
+                        <div className="absolute top-4 left-4 z-40 flex md:hidden items-center gap-1">
+                            <button
+                                onClick={handleUndo}
+                                className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
+                                title="Undo"
+                            >
+                                <Undo2 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={handleRedo}
+                                className="p-2 rounded-lg bg-card/80 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground shadow-lg transition-all hover:bg-white/5"
+                                title="Redo"
+                            >
+                                <Redo2 className="w-4 h-4" />
+                            </button>
+                        </div>
 
                         {/* Desktop Floating Bottom Right Add Buttons */}
                         {activeTab?.data && (
@@ -3374,10 +3013,10 @@ export default function AtlasPage() {
                                         >
                                             {/* Condensed Indicators */}
                                             <div className="w-2 h-7 rounded-full border border-emerald-500/50 bg-emerald-500/20" title="Pool" />
-                                            <div className="w-2 h-7 rounded-full border border-purple-500/50 bg-purple-500/20" title="Router" />
-                                            <div className="w-2 h-7 rounded-full border border-pink-500/50 bg-pink-500/20" title="History" />
                                             <div className="w-2 h-7 rounded-full border border-blue-500/50 bg-blue-500/20" title="Agent" />
                                             <div className="w-2 h-7 rounded-full border border-amber-500/50 bg-amber-500/20" title="Tool" />
+                                            <div className="w-2 h-7 rounded-full border border-purple-500/50 bg-purple-500/20" title="Router" />
+                                            <div className="w-2 h-7 rounded-full border border-pink-500/50 bg-pink-500/20" title="History" />
                                         </motion.div>
                                     ) : (
                                         <motion.div
@@ -3405,21 +3044,35 @@ export default function AtlasPage() {
                                                 <span className="text-xs font-medium">Pool</span>
                                             </button>
 
+                                            {/* Add Agent */}
+                                            <button
+                                                onClick={() => handleAddAgent()}
+                                                className="relative flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/40"
+                                                title="Add Agent"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                <Bot className="w-4 h-4" />
+                                                <span className="text-xs font-medium">Agent</span>
+                                            </button>
+
+                                            {/* Add Tool */}
+                                            <button
+                                                onClick={() => handleAddTool()}
+                                                className="relative flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 hover:border-amber-400/40"
+                                                title="Add Tool"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                                <Wrench className="w-4 h-4" />
+                                                <span className="text-xs font-medium">Tool</span>
+                                            </button>
+
                                             {/* Add Router */}
                                             <button
                                                 onClick={() => handleAddRouter()}
-                                                disabled={
-                                                    !!activeTab?.data?.data?.router || // Pool view
-                                                    !!activeTab?.data?.data?.pool?.router || // Project view (assigned)
-                                                    (activeTab?.data?.data?.unassigned_routers && activeTab?.data?.data?.unassigned_routers.length > 0) // Project view (unassigned)
-                                                }
+                                                disabled={!!activeTab?.data?.data?.router}
                                                 className={cn(
                                                     "relative flex items-center gap-2 px-3 py-2 rounded-xl border transition-all",
-                                                    (
-                                                        !!activeTab?.data?.data?.router ||
-                                                        !!activeTab?.data?.data?.pool?.router ||
-                                                        (activeTab?.data?.data?.unassigned_routers && activeTab?.data?.data?.unassigned_routers.length > 0)
-                                                    )
+                                                    activeTab?.data?.data?.router
                                                         ? "bg-secondary/50 border-transparent text-muted-foreground cursor-not-allowed opacity-50"
                                                         : "bg-purple-500/10 border-purple-500/20 text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 hover:border-purple-400/40"
                                                 )}
@@ -3445,28 +3098,6 @@ export default function AtlasPage() {
                                                 <Plus className="w-4 h-4" />
                                                 <History className="w-4 h-4" />
                                                 <span className="text-xs font-medium">History</span>
-                                            </button>
-
-                                            {/* Add Agent */}
-                                            <button
-                                                onClick={() => handleAddAgent()}
-                                                className="relative flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/40"
-                                                title="Add Agent"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                                <Bot className="w-4 h-4" />
-                                                <span className="text-xs font-medium">Agent</span>
-                                            </button>
-
-                                            {/* Add Tool */}
-                                            <button
-                                                onClick={() => handleAddTool()}
-                                                className="relative flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 hover:border-amber-400/40"
-                                                title="Add Tool"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                                <Wrench className="w-4 h-4" />
-                                                <span className="text-xs font-medium">Tool</span>
                                             </button>
                                         </motion.div>
                                     )}
@@ -3562,156 +3193,64 @@ export default function AtlasPage() {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    className="absolute inset-0 z-10 overflow-y-auto"
+                                    className="absolute inset-0 flex items-center justify-center z-10"
                                 >
-                                    <div className="min-h-full flex items-center justify-center py-8">
-                                        <div className="text-center w-full max-w-5xl mx-auto px-4">
-                                            <div className="max-w-md mx-auto">
-                                                {/* Header */}
-                                                <h1
-                                                    className="text-5xl font-normal mb-3 text-foreground"
-                                                    style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
-                                                >
-                                                    Welcome to <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas
-                                                </h1>
-                                                <p className="text-muted-foreground text-lg mb-10 font-light">
-                                                    Visual builder for AI agent systems
-                                                </p>
+                                    <div className="text-center max-w-2xl mx-auto px-4">
+                                        {/* Header */}
+                                        <h1
+                                            className="text-5xl font-normal mb-3 text-foreground"
+                                            style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
+                                        >
+                                            Welcome to <span className="font-medium text-transparent bg-clip-text bg-gradient-to-br from-primary to-emerald-500">peargent</span> Atlas
+                                        </h1>
+                                        <p className="text-muted-foreground text-lg mb-10 font-light">
+                                            Visual builder for AI agent systems
+                                        </p>
 
-                                                {/* Dual Path Cards */}
-                                                <div className="grid grid-cols-2 gap-4 text-left">
-                                                    {/* Start from Scratch */}
-                                                    <button
-                                                        onClick={handleNewProject}
-                                                        className="group w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-emerald-500/15 transition-all duration-300 flex flex-col justify-between h-[160px] relative overflow-hidden text-left items-start"
-                                                    >
-                                                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                            <Sparkles className="w-5 h-5 text-white" />
-                                                        </div>
-                                                        <div className="relative z-10">
-                                                            <h3 className="font-semibold text-foreground mb-1">Create Atlas</h3>
-                                                            <p className="text-xs text-muted-foreground leading-relaxed">Build your agent system visually, node by node</p>
-                                                        </div>
-                                                    </button>
-
-                                                    {/* Import File */}
-                                                    <label className="group w-full p-4 rounded-xl bg-card/50 border border-border hover:border-primary/30 hover:bg-card/80 transition-all duration-300 flex flex-col justify-between h-[160px] cursor-pointer relative overflow-hidden">
-                                                        <input
-                                                            type="file"
-                                                            accept=".pear,.json"
-                                                            onChange={handleFileSelect}
-                                                            className="hidden"
-                                                        />
-                                                        <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                                        <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mb-3 relative z-10">
-                                                            <FolderOpen className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                                        </div>
-                                                        <div className="relative z-10">
-                                                            <h3 className="font-semibold text-foreground mb-1">Import .pear File</h3>
-                                                            <p className="text-xs text-muted-foreground leading-relaxed">Load an existing agent configuration</p>
-                                                        </div>
-                                                    </label>
+                                        {/* Dual Path Cards */}
+                                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-stretch">
+                                            {/* Start from Scratch */}
+                                            <button
+                                                onClick={handleNewProject}
+                                                className="group flex-1 max-w-[280px] p-6 rounded-2xl bg-gradient-to-br from-primary/10 to-emerald-500/10 border border-primary/20 hover:border-primary/40 hover:from-primary/15 hover:to-emerald-500/15 transition-all duration-300 text-left relative overflow-hidden"
+                                            >
+                                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <div className="relative z-10">
+                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                                        <Sparkles className="w-6 h-6 text-white" />
+                                                    </div>
+                                                    <h3 className="text-lg font-semibold text-foreground mb-1">Start from Scratch</h3>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Build your agent system visually, node by node
+                                                    </p>
                                                 </div>
+                                            </button>
 
-                                                {/* Drag hint */}
-                                                {/* <p className="text-xs text-muted-foreground/60 mt-8">
-                                                    or drag and drop a <span className="font-mono text-primary/60">.pear</span> file anywhere
-                                                </p> */}
-                                            </div>
-
-                                            {/* Tutorial Button */}
-                                            <div className="mt-6 mb-8 flex justify-center animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150">
-                                                <button
-                                                    onClick={handleTutorial}
-                                                    className="group relative px-6 py-3 rounded-xl overflow-hidden transition-all hover:scale-105 active:scale-95 border border-primary/20 hover:border-primary/40"
-                                                >
-                                                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-emerald-500/10 to-primary/10 transition-opacity opacity-50 group-hover:opacity-100" />
-                                                    <div className="relative flex items-center gap-3">
-                                                        <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
-                                                            <Sparkles className="w-4 h-4" />
-                                                        </div>
-                                                        <span className="font-medium text-foreground text-sm" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '1.1rem' }}>
-                                                            Example
-                                                        </span>
-                                                        <span className="text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity">
-                                                            Click to load example
-                                                        </span>
+                                            {/* Import File */}
+                                            <label className="group flex-1 max-w-[280px] p-6 rounded-2xl bg-card/50 border border-border hover:border-primary/30 hover:bg-card/80 transition-all duration-300 text-left cursor-pointer relative overflow-hidden">
+                                                <input
+                                                    type="file"
+                                                    accept=".pear,.json"
+                                                    onChange={handleFileSelect}
+                                                    className="hidden"
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <div className="relative z-10">
+                                                    <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                                        <FolderOpen className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
                                                     </div>
-                                                </button>
-                                            </div>
-
-                                            {/* How to use Atlas Section */}
-                                            <div className="mt-4 text-left animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-                                                <h3 className="text-3xl text-center mb-8 text-foreground/80" style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>
-                                                    How to use Atlas
-                                                </h3>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                                                    {/* Agent Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3 text-blue-400">
-                                                            <Bot className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Agent Node</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Autonomous AI entity configured with a model and instructions to execute specific tasks.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Pool Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-3 text-emerald-400">
-                                                            <Database className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Agent Pool</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Orchestration layer that manages multiple agents and delegates tasks efficiently.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Tool Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center mb-3 text-amber-400">
-                                                            <Wrench className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Tool Node</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Custom Python functions that agents can execute to interact with external systems.
-                                                        </p>
-                                                    </div>
-
-                                                    {/* Router Node */}
-                                                    <div className="p-4 rounded-xl bg-card/30 border border-white/5 hover:bg-card/50 transition-colors">
-                                                        <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3 text-purple-400">
-                                                            <Network className="w-4 h-4" />
-                                                        </div>
-                                                        <h4 className="text-sm font-semibold text-foreground mb-1">Router Node</h4>
-                                                        <p className="text-xs text-muted-foreground leading-relaxed">
-                                                            Intelligent routing layer that directs user intent to the most appropriate agent.
-                                                        </p>
-                                                    </div>
+                                                    <h3 className="text-lg font-semibold text-foreground mb-1">Import .pear File</h3>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Load an existing agent configuration
+                                                    </p>
                                                 </div>
-
-                                                {/* Export & Run */}
-                                                <div className="rounded-xl bg-gradient-to-r from-primary/5 via-card/50 to-primary/5 border border-white/10 p-5 flex flex-col md:flex-row items-center gap-6 justify-between">
-                                                    <div className="flex gap-4 items-center">
-                                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                                                            <Download className="w-5 h-5 text-primary" />
-                                                        </div>
-                                                        <div>
-                                                            <h4 className="text-sm font-semibold text-foreground">Export & Run</h4>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                                Download your atlas as a .pear file and run it directly with the Peargent CLI.
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="shrink-0 font-mono text-xs bg-muted px-3 py-1.5 rounded-md border border-border text-muted-foreground">
-                                                        peargent run my-agent.pear
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            </label>
                                         </div>
+
+                                        {/* Drag hint */}
+                                        <p className="text-xs text-muted-foreground/60 mt-8">
+                                            or drag and drop a <span className="font-mono text-primary/60">.pear</span> file anywhere
+                                        </p>
                                     </div>
                                 </motion.div>
                             )}
@@ -3724,22 +3263,17 @@ export default function AtlasPage() {
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
-                                    className="absolute inset-0 z-50 bg-background/90 backdrop-blur-md flex items-center justify-center p-8"
+                                    className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center"
                                 >
-                                    <div className="w-full h-full border-2 border-dashed border-primary/20 rounded-[2rem] flex items-center justify-center bg-primary/5 relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-emerald-500/5" />
-
-                                        <div className="text-center relative z-10">
-                                            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-primary/30 animate-bounce">
-                                                <Upload className="w-10 h-10 text-white" />
+                                    <div className="absolute inset-4 border-4 border-dashed border-blue-500/50 rounded-3xl flex items-center justify-center bg-blue-500/5">
+                                        <div className="text-center">
+                                            <div className="w-24 h-24 rounded-3xl bg-blue-500 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/50 animate-bounce">
+                                                <Upload className="w-12 h-12 text-white" />
                                             </div>
-                                            <h2
-                                                className="text-5xl font-normal mb-3 text-foreground"
-                                                style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
-                                            >
+                                            <h2 className="text-4xl font-bold mb-4">
                                                 Drop to Open
                                             </h2>
-                                            <p className="text-lg text-muted-foreground font-light">Original file will be loaded in a new tab</p>
+                                            <p className="text-xl text-muted-foreground">Original file will be loaded in a new tab</p>
                                         </div>
                                     </div>
                                 </motion.div>
@@ -3818,6 +3352,6 @@ export default function AtlasPage() {
                     )}
                 </AnimatePresence>
             </div>
-        </div>
+        </div >
     );
-}   
+}

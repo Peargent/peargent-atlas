@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, GripVertical, History, Pencil, Save, Download, FileJson, FileCode, Video, Image as ImageIcon } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, History, Pencil, Save, Download, FileJson, FileCode, Video, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -18,7 +18,10 @@ interface SidebarProps {
     onSave?: () => void;
     onDownload?: () => void; // Keeping generic just in case, but using specific ones
     onDownloadImage?: () => void;
-    onDownloadPython?: () => void;
+    tabs?: { id: string; name: string }[];
+    activeTabId?: string | null;
+    onTabChange?: (id: string) => void;
+    onNewTab?: () => void;
 }
 
 interface TreeNode {
@@ -46,14 +49,13 @@ const TYPE_COLORS: Record<TreeNode['type'], string> = {
 };
 
 const SOCIAL_LINKS = [
-    { href: 'https://github.com/quanta-naut/peargent', icon: Github, title: 'GitHub' },
     { href: 'https://peargent.online/socials', icon: TreeDeciduous, title: 'Socials' },
 ];
 
 // Utility Functions
 const createToolNodes = (tools: any[] | undefined, parentId: string): TreeNode[] =>
     tools?.map((tool, idx) => ({
-        id: `${parentId}-tool-${idx}`,
+        id: `${parentId}-tool-${tool._id || idx}`,
         label: tool.name,
         type: 'tool' as const,
         icon: Wrench,
@@ -252,6 +254,98 @@ const SocialLinks = ({ withHoverEffect = false, vertical = false }: { withHoverE
     </div>
 );
 
+const MobileTabSwitcher = ({
+    tabs,
+    activeTabId,
+    onTabChange,
+    onNewTab
+}: {
+    tabs?: { id: string; name: string }[];
+    activeTabId?: string | null;
+    onTabChange?: (id: string) => void;
+    onNewTab?: () => void;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    if (!tabs || !onTabChange || !onNewTab) return null;
+
+    return (
+        <div className="px-4 mb-4 md:hidden">
+            <div className="relative">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-card/50 border border-white/10 text-left"
+                >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="p-1.5 rounded-lg bg-primary/20 text-primary shrink-0">
+                            <Box className="w-4 h-4" />
+                        </div>
+                        <span className="font-medium truncate">
+                            {tabs.find(t => t.id === activeTabId)?.name || "Select Project"}
+                        </span>
+                    </div>
+                    <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                </button>
+
+                <AnimatePresence>
+                    {isOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="absolute top-full left-0 right-0 mt-2 bg-popover border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 py-1"
+                        >
+                            <div className="px-2 pb-2 mb-2 border-b border-white/5">
+                                <span className="text-xs font-medium text-muted-foreground px-2 py-2 block">Projects</span>
+                            </div>
+
+                            <div className="max-h-[200px] overflow-y-auto px-2 space-y-1">
+                                {tabs.map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => {
+                                            onTabChange(tab.id);
+                                            setIsOpen(false);
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                                            activeTabId === tab.id
+                                                ? "bg-primary/10 text-primary"
+                                                : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-1.5 h-1.5 rounded-full shrink-0",
+                                            activeTabId === tab.id ? "bg-primary" : "bg-transparent"
+                                        )} />
+                                        <span className="truncate">{tab.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="px-2 pt-2 mt-2 border-t border-white/5">
+                                <button
+                                    onClick={() => {
+                                        onNewTab();
+                                        setIsOpen(false);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                    <div className="w-5 h-5 rounded-md border border-primary/30 flex items-center justify-center">
+                                        <div className="w-2.5 h-0.5 bg-primary rounded-full" />
+                                        <div className="w-0.5 h-2.5 bg-primary rounded-full absolute" />
+                                    </div>
+                                    New Project
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </div>
+    );
+};
+
 const Footer = ({ collapsed }: { collapsed: boolean }) => (
     <div className={cn(
         "mt-auto relative z-10 w-full bg-gradient-to-t from-background to-background/50 backdrop-blur-sm border-t border-sidebar-border hidden md:flex flex-col",
@@ -299,7 +393,7 @@ const EmptyState = () => (
         </div>
         <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">No Data</p>
-            <p className="text-xs text-muted-foreground">Import a file to view structure</p>
+            <p className="text-xs text-muted-foreground">Create an Atlas to view structure</p>
         </div>
     </div>
 );
@@ -320,12 +414,16 @@ export default function AtlasSidebar({
     onSave,
     onDownload,
     onDownloadImage,
-    onDownloadPython
+    tabs,
+    activeTabId,
+    onTabChange,
+    onNewTab,
 }: SidebarProps & { isCollapsed?: boolean }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
-    const [width, setWidth] = useState(DEFAULT_WIDTH);
-    const [isResizing, setIsResizing] = useState(false);
+
+    // Fixed width
+    const width = DEFAULT_WIDTH;
 
     const treeData = useMemo(() => data ? buildTree(data) : null, [data]);
 
@@ -342,30 +440,6 @@ export default function AtlasSidebar({
             return newSet;
         });
     }, []);
-
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        if (isCollapsed) return;
-        e.preventDefault();
-        setIsResizing(true);
-
-        const startX = e.clientX;
-        const startWidth = width;
-
-        const handleMouseMove = (e: MouseEvent) => {
-            const delta = e.clientX - startX;
-            const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta));
-            setWidth(newWidth);
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
-
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-    }, [width, isCollapsed]);
 
     // Auto-expand nodes on data change or search
     useEffect(() => {
@@ -433,24 +507,9 @@ export default function AtlasSidebar({
             style={{ width: isMobile ? '100%' : (isCollapsed ? COLLAPSED_WIDTH : width) }}
             className={cn(
                 "flex flex-col border-r border-sidebar-border bg-background backdrop-blur-xl h-full relative shrink-0 transition-[width] duration-200",
-                isResizing && "select-none transition-none",
                 className
             )}
         >
-            {/* Resize Handle */}
-            {!isCollapsed && !isMobile && (
-                <div
-                    onMouseDown={handleMouseDown}
-                    className={cn(
-                        "absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize group hover:bg-primary/20 transition-colors z-10",
-                        isResizing && "bg-primary/30"
-                    )}
-                >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <GripVertical className="w-3 h-3 text-muted-foreground" />
-                    </div>
-                </div>
-            )}
 
             {/* Header - Only Mobile now */}
             <div className={cn(
@@ -458,6 +517,14 @@ export default function AtlasSidebar({
                 isCollapsed && "items-center pt-4"
             )}>
                 <MobileHeader onClose={onClose} />
+                {!isCollapsed && tabs && activeTabId && onTabChange && onNewTab && (
+                    <MobileTabSwitcher
+                        tabs={tabs}
+                        activeTabId={activeTabId}
+                        onTabChange={onTabChange}
+                        onNewTab={onNewTab}
+                    />
+                )}
             </div>
 
             {/* Desktop Spacer if expanding? No, header is gone. Just start content. */}
@@ -505,7 +572,7 @@ export default function AtlasSidebar({
                                 Save Project
                             </button>
 
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={onDownload}
                                     className="flex flex-col items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-card border border-border/50 hover:bg-white/5 transition-colors"
@@ -513,14 +580,6 @@ export default function AtlasSidebar({
                                 >
                                     <FileJson className="w-4 h-4 text-primary" />
                                     <span className="text-[10px] font-medium text-muted-foreground uppercase">JSON</span>
-                                </button>
-                                <button
-                                    onClick={onDownloadPython}
-                                    className="flex flex-col items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-card border border-border/50 hover:bg-white/5 transition-colors"
-                                    title="Download .py (Python)"
-                                >
-                                    <FileCode className="w-4 h-4 text-amber-500" />
-                                    <span className="text-[10px] font-medium text-muted-foreground uppercase">Code</span>
                                 </button>
                                 <button
                                     onClick={onDownloadImage}

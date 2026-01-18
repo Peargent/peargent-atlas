@@ -1,14 +1,92 @@
 "use client";
 
-import { useMemo, useEffect, useState, useRef } from 'react';
-import { ReactFlow, Background, Controls, useNodesState, useEdgesState, BackgroundVariant, useReactFlow, SelectionMode } from '@xyflow/react';
+import { useMemo, useEffect, useState, useRef, useCallback } from 'react';
+import { ReactFlow, Background, Controls, useNodesState, useEdgesState, BackgroundVariant, useReactFlow, SelectionMode, getSmoothStepPath, EdgeLabelRenderer, BaseEdge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { AgentNode, RouterNode, ToolNode, PoolNode, HistoryNode } from './CustomNodes';
 import { parsePearData } from './layout';
-import { Node, Edge, Connection, OnConnect } from '@xyflow/react';
+import { Node, Edge, Connection, OnConnect, EdgeProps } from '@xyflow/react';
 import { ContextMenu, ContextMenuItem } from '../ui/ContextMenu';
 import { Bot, Plus, Wrench, Network, History, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { AnnotationNode, tutorialAnnotations, TutorialOverlay, getTutorialAnnotations } from './Tutorial';
+
+// Custom Edge with Delete Button (shows on hover)
+function DeletableEdge({
+    id,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    style = {},
+    markerEnd,
+    data,
+}: EdgeProps) {
+    const [isHovered, setIsHovered] = useState(false);
+    const [edgePath, labelX, labelY] = getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+    });
+
+    const onDelete = data?.onDelete as ((edgeId: string) => void) | undefined;
+
+    return (
+        <g
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            {/* Invisible wider path for easier hover detection */}
+            <path
+                d={edgePath}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={20}
+                style={{ cursor: 'pointer' }}
+            />
+            <BaseEdge
+                path={edgePath}
+                markerEnd={markerEnd}
+                style={{
+                    strokeWidth: 2,
+                    stroke: '#3b82f6',
+                    strokeDasharray: '8,4',
+                    ...style,
+                }}
+            />
+            <EdgeLabelRenderer>
+                <div
+                    style={{
+                        position: 'absolute',
+                        transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                        pointerEvents: 'all',
+                        opacity: isHovered ? 1 : 0,
+                        transition: 'opacity 0.15s ease',
+                    }}
+                    className="nodrag nopan"
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                >
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete?.(id);
+                        }}
+                        className="w-6 h-6 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all shadow-md hover:scale-110 border border-border"
+                        title="Delete connection"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            </EdgeLabelRenderer>
+        </g>
+    );
+}
 
 const nodeTypes = {
     agent: AgentNode,
@@ -16,6 +94,11 @@ const nodeTypes = {
     tool: ToolNode,
     pool: PoolNode,
     history: HistoryNode,
+    annotation: AnnotationNode,
+};
+
+const edgeTypes = {
+    deletable: DeletableEdge,
 };
 
 export default function AtlasGraph({
@@ -37,7 +120,10 @@ export default function AtlasGraph({
     onConnectHistoryToParent,
     onConnectRouterToPool,
     nodePositions,
-    onNodePositionChange
+    onNodePositionChange,
+    onDisconnect,
+    isTutorial,
+    initialViewport
 }: {
     data: any,
     selectedNodeId?: string | null,
@@ -53,17 +139,30 @@ export default function AtlasGraph({
     onAddRouter?: (position?: { x: number, y: number }) => void;
     onAddHistory?: (id?: string | undefined, position?: { x: number, y: number }) => void;
     onAddPool?: (position?: { x: number, y: number }) => void;
-    onDeleteNode?: (id: string) => void;
+    onDeleteNode?: (id: string | string[]) => void;
     onConnectHistoryToParent?: (historyId: string, parentId: string, position?: { x: number, y: number }) => void;
     onConnectRouterToPool?: (routerId: string, poolId: string, position?: { x: number, y: number }) => void;
     nodePositions?: Record<string, { x: number, y: number }>;
     onNodePositionChange?: (nodeId: string, position: { x: number, y: number }) => void;
+    onDisconnect?: (sourceId: string, targetId: string) => void;
+    isTutorial?: boolean;
+    initialViewport?: { x: number, y: number, zoom: number };
 }) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, items: ContextMenuItem[] } | null>(null);
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const [isMobile, setIsMobile] = useState(false);
+
+    // Use ref for onDisconnect to avoid infinite loops when creating edge handlers
+    const onDisconnectRef = useRef(onDisconnect);
+    useEffect(() => {
+        onDisconnectRef.current = onDisconnect;
+    }, [onDisconnect]);
+
+    // Track nodePositions via ref for synchronous access during renders
+    const nodePositionsRef = useRef(nodePositions);
+    nodePositionsRef.current = nodePositions;
 
     // Track mobile state
     useEffect(() => {
@@ -117,8 +216,9 @@ export default function AtlasGraph({
             const mergedNodes = freshNodes.map(freshNode => {
                 const existing = currentNodeMap.get(freshNode.id);
 
-                // Check if there's a custom position for this node
-                const customPosition = nodePositions?.[freshNode.id];
+                // Check if there's a custom position for this node (use ref for latest value)
+                const currentPositions = nodePositionsRef.current;
+                const customPosition = currentPositions?.[freshNode.id];
 
                 if (existing) {
                     return {
@@ -138,28 +238,71 @@ export default function AtlasGraph({
                     };
                 }
 
-                // For new tool nodes, try to find position from previous tool ID
+                // For new tool nodes, try to find position from currentNodes
+                // This handles cases where tool IDs changed (moved between agents or reindexed)
                 if (freshNode.type === 'tool') {
-                    const prevPosition = findPreviousToolPosition(freshNode.id);
-                    if (prevPosition) {
-                        return {
-                            ...freshNode,
-                            position: prevPosition
-                        };
+                    // Match by tool identity (_id or name) to find the correct previous position
+                    // This prevents tools from taking each other's positions during reconnection
+                    const freshNodeIds = new Set(freshNodes.map(n => n.id));
+
+                    // Extract identity from fresh node - try _id first (most reliable), then name
+                    const freshToolId = (freshNode.data as any)?.originalData?._id;
+                    const freshToolName = (freshNode.data as any)?.originalData?.name || freshNode.data?.name;
+
+                    // Skip identity matching if we don't have any identity data
+                    if (freshToolId || freshToolName) {
+                        for (const [id, node] of currentNodeMap) {
+                            if (node.type === 'tool' && !freshNodeIds.has(id) &&
+                                node.position && (node.position.x !== 0 || node.position.y !== 0)) {
+                                // Extract identity from current node
+                                const currentToolId = (node.data as any)?.originalData?._id;
+                                const currentToolName = (node.data as any)?.originalData?.name || node.data?.name;
+
+                                // Match by _id first (most reliable), then by name as fallback
+                                const idsMatch = freshToolId && currentToolId && freshToolId === currentToolId;
+                                const namesMatch = !freshToolId && !currentToolId && freshToolName && currentToolName && freshToolName === currentToolName;
+
+                                if (idsMatch || namesMatch) {
+                                    // Found the same tool with a different ID - use its position
+                                    return {
+                                        ...freshNode,
+                                        position: node.position
+                                    };
+                                }
+                            }
+                        }
                     }
                 }
 
                 // Helper: Find a history node in currentNodes that might correspond to a new history ID
                 if (freshNode.type === 'history') {
-                    // For assigned history (X-history), check if there's an unassigned history
-                    if (freshNode.id.endsWith('-history') && !freshNode.id.startsWith('history-unassigned-')) {
+                    // Match by history identity to find the correct previous position
+                    const freshNodeIds = new Set(freshNodes.map(n => n.id));
+
+                    // Extract identity - try _id first, then name
+                    const freshHistoryId = (freshNode.data as any)?.originalData?._id;
+                    const freshHistoryName = (freshNode.data as any)?.originalData?.name || freshNode.data?.name;
+
+                    // Skip if no identity data
+                    if (freshHistoryId || freshHistoryName) {
                         for (const [id, node] of currentNodeMap) {
-                            if (id.startsWith('history-unassigned-') &&
+                            if (node.type === 'history' && !freshNodeIds.has(id) &&
                                 node.position && (node.position.x !== 0 || node.position.y !== 0)) {
-                                return {
-                                    ...freshNode,
-                                    position: node.position
-                                };
+                                // Extract identity from current node
+                                const currentHistoryId = (node.data as any)?.originalData?._id;
+                                const currentHistoryName = (node.data as any)?.originalData?.name || node.data?.name;
+
+                                // Match by _id first, then by name as fallback
+                                const idsMatch = freshHistoryId && currentHistoryId && freshHistoryId === currentHistoryId;
+                                const namesMatch = !freshHistoryId && !currentHistoryId && freshHistoryName && currentHistoryName && freshHistoryName === currentHistoryName;
+
+                                if (idsMatch || namesMatch) {
+                                    // Found the same history with a different ID - use its position
+                                    return {
+                                        ...freshNode,
+                                        position: node.position
+                                    };
+                                }
                             }
                         }
                     }
@@ -167,18 +310,54 @@ export default function AtlasGraph({
 
                 return freshNode;
             });
+            // If in tutorial mode, append annotation nodes with responsive positioning
+            if (isTutorial) {
+                // Get annotations with screen-relative positions
+                const responsiveAnnotations = typeof window !== 'undefined'
+                    ? getTutorialAnnotations(window.innerWidth, window.innerHeight)
+                    : tutorialAnnotations;
+
+                const annotationNodes = responsiveAnnotations.map(annotation => ({
+                    id: annotation.id,
+                    type: 'annotation',
+                    position: annotation.position,
+                    data: {
+                        text: annotation.text,
+                        image: annotation.image,
+                    },
+                    draggable: false,
+                    selectable: false,
+                    connectable: false
+                }));
+                // Filter out any stale annotations from mergedNodes (unlikely but safe) and append new ones
+                return [...mergedNodes.filter(n => !n.id.startsWith('annotation-')), ...annotationNodes];
+            }
+
             return mergedNodes;
         });
 
-        setEdges(freshEdges);
-    }, [data, nodePositions, setNodes, setEdges]);
+        // Transform edges to use deletable type with delete handler
+        const edgesWithDelete = freshEdges.map(edge => ({
+            ...edge,
+            type: 'deletable',
+            data: {
+                ...edge.data,
+                onDelete: (edgeId: string) => {
+                    const edgeToDelete = freshEdges.find(e => e.id === edgeId);
+                    if (edgeToDelete && onDisconnectRef.current) {
+                        onDisconnectRef.current(edgeToDelete.source as string, edgeToDelete.target as string);
+                    }
+                },
+            }
+        }));
+        setEdges(edgesWithDelete);
+        setEdges(edgesWithDelete);
+    }, [data, nodePositions, setNodes, setEdges, isTutorial]);
+
 
     // Lift state up whenever nodes or edges change
     // We use a debounce or simple effect to notify parent
     useEffect(() => {
-        if (nodes.length > 0 && onLayoutChange) {
-            onLayoutChange(nodes, edges);
-        }
         if (nodes.length > 0 && onLayoutChange) {
             onLayoutChange(nodes, edges);
         }
@@ -256,7 +435,7 @@ export default function AtlasGraph({
         // Pass all node IDs at once for batched state update
         const idsToDelete = deletedNodes.map(node => node.id);
         if (idsToDelete.length > 0) {
-            onDeleteNode(idsToDelete as any); // Cast needed since handler accepts string | string[]
+            onDeleteNode(idsToDelete);
         }
     };
 
@@ -422,10 +601,19 @@ export default function AtlasGraph({
         onPaneClick?.();
     };
 
+    // Nodes display - removed tutorial freeze, now always normal
+    const displayedNodes = useMemo(() => nodes, [nodes]);
+
     return (
-        <div ref={reactFlowWrapper} className="w-full h-full text-foreground">
+        <div
+            ref={reactFlowWrapper}
+            className="w-full h-full text-foreground"
+            onMouseDownCapture={(e) => {
+                // No special handling needed
+            }}
+        >
             <ReactFlow
-                nodes={nodes}
+                nodes={displayedNodes}
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
@@ -433,13 +621,25 @@ export default function AtlasGraph({
                 onConnect={onConnect}
                 onNodeDragStop={handleNodeDragStop}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 onInit={(instance) => { reactFlowInstanceRef.current = instance; }}
-                fitView
+                defaultViewport={initialViewport}
+                fitView={!initialViewport}
+                fitViewOptions={{ padding: 0.2, minZoom: 0.1, maxZoom: 1 }}
                 className="bg-transparent"
                 minZoom={0.2}
                 maxZoom={1.5}
-                selectionOnDrag={!isMobile}
-                panOnDrag={isMobile ? true : [1, 2]}
+                selectionOnDrag={false}
+                panOnDrag={true}
+                preventScrolling={true}
+                panActivationKeyCode={'Space'}
+                translateExtent={undefined}
+                nodesDraggable={true}
+                nodesConnectable={true}
+                zoomOnScroll={true}
+                zoomOnPinch={true}
+                zoomOnDoubleClick={true}
+                panOnScroll={false}
                 selectionMode={SelectionMode.Partial}
                 deleteKeyCode={['Backspace', 'Delete']}
                 onNodeClick={(event, node) => {
@@ -448,7 +648,7 @@ export default function AtlasGraph({
 
                     // Open details sidebar with node data
                     const nodeType = node.type as 'agent' | 'router' | 'tool' | 'pool';
-                    const originalData = node.data.originalData || node.data;
+                    const originalData = (node.data as any).originalData || node.data;
                     // Inject ID so we can key the sidebar
                     const dataWithId = { ...originalData, _nodeId: node.id };
                     onNodeClick?.(dataWithId, nodeType);
@@ -482,12 +682,17 @@ export default function AtlasGraph({
                     color="currentColor"
                     className="opacity-[0.15]"
                 />
-                <Controls
-                    className={cn(
-                        "bg-card border border-border text-foreground [&>button]:!bg-card [&>button]:!border-border [&>button:hover]:!bg-secondary transition-all duration-300",
-                        isMobile && selectedNodeId && "!bottom-[80px]"
-                    )}
-                />
+                {(data || defaultLayout) && (
+                    <Controls
+                        className={cn(
+                            "bg-card border border-border text-foreground [&>button]:!bg-card [&>button]:!border-border [&>button:hover]:!bg-secondary transition-all duration-300",
+                            isMobile && selectedNodeId && "!bottom-[80px]"
+                        )}
+                    />
+                )}
+
+                {/* Tutorial overlay - inside ReactFlow for context access */}
+                {isTutorial && <TutorialOverlay />}
             </ReactFlow>
 
             {contextMenu && (
