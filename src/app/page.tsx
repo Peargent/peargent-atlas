@@ -2744,6 +2744,22 @@ export default function AtlasPage() {
                                 onSave={handleSave}
                                 onDownload={handleDownloadPear}
                                 onDownloadImage={handleDownloadImage}
+                                tabs={tabs.map(t => ({ id: t.id, name: t.name }))}
+                                activeTabId={activeTabId}
+                                onTabChange={(id) => setActiveTabId(id)}
+                                onCloseTab={(id) => {
+                                    // Create synthetic event for closeTab
+                                    closeTab({ stopPropagation: () => { } } as React.MouseEvent, id);
+                                }}
+                                onRenameTab={(id, name) => {
+                                    setTabs(prev => prev.map(t =>
+                                        t.id === id ? { ...t, name } : t
+                                    ));
+                                }}
+                                onNewTab={() => {
+                                    handleNewEmptyTab();
+                                    setIsSidebarOpen(false);
+                                }}
                             />
                         </motion.div>
                     </>
@@ -2760,7 +2776,15 @@ export default function AtlasPage() {
                     <div className="flex items-center justify-between w-full md:hidden px-4 py-3 border-b border-white/5">
                         {/* Left: Actions */}
 
-                        <div>
+                        <div
+                            onClick={() => {
+                                // Only create new tab if current tab has data (not already on welcome screen)
+                                if (activeTab?.data) {
+                                    handleNewEmptyTab();
+                                }
+                            }}
+                            className="cursor-pointer"
+                        >
                             <span className="font-semibold text-foreground leading-none" style={{ fontFamily: 'var(--font-instrument-serif), serif', fontSize: '2.1rem' }}>
                                 peargent.
                             </span>
@@ -2786,7 +2810,7 @@ export default function AtlasPage() {
                         onMouseLeave={handleTabsMouseLeave}
                         onMouseUp={handleTabsMouseUp}
                         onMouseMove={handleTabsMouseMove}
-                        className="flex-1 flex items-end gap-0.5 overflow-x-auto w-full md:w-auto [&::-webkit-scrollbar]:hidden h-full min-h-[45px] z-10 cursor-grab active:cursor-grabbing"
+                        className="hidden md:flex flex-1 items-end gap-0.5 overflow-x-auto w-full md:w-auto [&::-webkit-scrollbar]:hidden h-full min-h-[45px] z-10 cursor-grab active:cursor-grabbing"
                     >
                         <AnimatePresence initial={false}>
                             {tabs.map((tab) => (
@@ -3474,56 +3498,29 @@ export default function AtlasPage() {
                             </motion.div>
                         )}
 
-                        {/* Mobile Add FAB & Menu */}
+                        {/* Mobile Add FAB & Menu - top right */}
                         {activeTab?.data && (
-                            <div className={cn(
-                                "md:hidden absolute right-6 z-40 flex flex-col items-end gap-4 pointer-events-none transition-all duration-300",
-                                detailsNode ? "bottom-20" : "bottom-6"
-                            )}>
+                            <div className="md:hidden absolute right-4 top-4 z-40 flex flex-col items-end gap-3 pointer-events-none">
+                                {/* FAB - stays at top */}
+                                <button
+                                    onClick={() => setIsMobileAddMenuOpen(!isMobileAddMenuOpen)}
+                                    className={cn(
+                                        "w-12 h-12 rounded-full bg-card/90 backdrop-blur-md border border-white/10 text-foreground shadow-xl flex items-center justify-center pointer-events-auto transition-transform active:scale-95",
+                                        isMobileAddMenuOpen && "bg-secondary text-foreground"
+                                    )}
+                                >
+                                    <Plus className={cn("w-6 h-6 transition-transform duration-300", isMobileAddMenuOpen && "rotate-[135deg]")} />
+                                </button>
+
+                                {/* Menu items appear below */}
                                 <AnimatePresence>
                                     {isMobileAddMenuOpen && (
                                         <motion.div
-                                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                            initial={{ opacity: 0, y: -10, scale: 0.9 }}
                                             animate={{ opacity: 1, y: 0, scale: 1 }}
-                                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                                            exit={{ opacity: 0, y: -10, scale: 0.9 }}
                                             className="flex flex-col items-end gap-3 pointer-events-auto"
                                         >
-                                            {/* History */}
-                                            <button
-                                                onClick={() => { handleAddHistory(); setIsMobileAddMenuOpen(false); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-pink-500/20 text-pink-400 shadow-lg shadow-black/5"
-                                            >
-                                                <span className="text-sm font-medium">History</span>
-                                                <History className="w-4 h-4" />
-                                            </button>
-
-                                            {/* Router */}
-                                            <button
-                                                onClick={() => { handleAddRouter(); setIsMobileAddMenuOpen(false); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-purple-500/20 text-purple-400 shadow-lg shadow-black/5"
-                                            >
-                                                <span className="text-sm font-medium">Router</span>
-                                                <Network className="w-4 h-4" />
-                                            </button>
-
-                                            {/* Tool */}
-                                            <button
-                                                onClick={() => { handleAddTool(); setIsMobileAddMenuOpen(false); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-amber-500/20 text-amber-400 shadow-lg shadow-black/5"
-                                            >
-                                                <span className="text-sm font-medium">Tool</span>
-                                                <Wrench className="w-4 h-4" />
-                                            </button>
-
-                                            {/* Agent */}
-                                            <button
-                                                onClick={() => { handleAddAgent(); setIsMobileAddMenuOpen(false); }}
-                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-blue-500/20 text-blue-400 shadow-lg shadow-black/5"
-                                            >
-                                                <span className="text-sm font-medium">Agent</span>
-                                                <Bot className="w-4 h-4" />
-                                            </button>
-
                                             {/* Pool */}
                                             <button
                                                 onClick={() => { handleAddPool(); setIsMobileAddMenuOpen(false); }}
@@ -3538,20 +3535,45 @@ export default function AtlasPage() {
                                                 <span className="text-sm font-medium">Pool</span>
                                                 <Layers className="w-4 h-4" />
                                             </button>
+
+                                            {/* Agent */}
+                                            <button
+                                                onClick={() => { handleAddAgent(); setIsMobileAddMenuOpen(false); }}
+                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-blue-500/20 text-blue-400 shadow-lg shadow-black/5"
+                                            >
+                                                <span className="text-sm font-medium">Agent</span>
+                                                <Bot className="w-4 h-4" />
+                                            </button>
+
+                                            {/* Tool */}
+                                            <button
+                                                onClick={() => { handleAddTool(); setIsMobileAddMenuOpen(false); }}
+                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-amber-500/20 text-amber-400 shadow-lg shadow-black/5"
+                                            >
+                                                <span className="text-sm font-medium">Tool</span>
+                                                <Wrench className="w-4 h-4" />
+                                            </button>
+
+                                            {/* Router */}
+                                            <button
+                                                onClick={() => { handleAddRouter(); setIsMobileAddMenuOpen(false); }}
+                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-purple-500/20 text-purple-400 shadow-lg shadow-black/5"
+                                            >
+                                                <span className="text-sm font-medium">Router</span>
+                                                <Network className="w-4 h-4" />
+                                            </button>
+
+                                            {/* History */}
+                                            <button
+                                                onClick={() => { handleAddHistory(); setIsMobileAddMenuOpen(false); }}
+                                                className="flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-pink-500/20 text-pink-400 shadow-lg shadow-black/5"
+                                            >
+                                                <span className="text-sm font-medium">History</span>
+                                                <History className="w-4 h-4" />
+                                            </button>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-
-                                {/* FAB */}
-                                <button
-                                    onClick={() => setIsMobileAddMenuOpen(!isMobileAddMenuOpen)}
-                                    className={cn(
-                                        "w-12 h-12 rounded-full bg-card/90 backdrop-blur-md border border-white/10 text-foreground shadow-xl flex items-center justify-center pointer-events-auto transition-transform active:scale-95",
-                                        isMobileAddMenuOpen && "bg-secondary text-foreground"
-                                    )}
-                                >
-                                    <Plus className={cn("w-6 h-6 transition-transform duration-300", isMobileAddMenuOpen && "rotate-[135deg]")} />
-                                </button>
                             </div>
                         )}
 

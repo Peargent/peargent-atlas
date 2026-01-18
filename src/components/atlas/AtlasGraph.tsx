@@ -682,11 +682,11 @@ export default function AtlasGraph({
                     color="currentColor"
                     className="opacity-[0.15]"
                 />
-                {(data || defaultLayout) && (
+                {(data || defaultLayout) && !(isMobile && selectedNodeId) && (
                     <Controls
                         className={cn(
                             "bg-card border border-border text-foreground [&>button]:!bg-card [&>button]:!border-border [&>button:hover]:!bg-secondary transition-all duration-300",
-                            isMobile && selectedNodeId && "!bottom-[80px]"
+                            isMobile && "z-[60]"
                         )}
                     />
                 )}
@@ -703,6 +703,7 @@ export default function AtlasGraph({
                     onClose={() => setContextMenu(null)}
                 />
             )}
+
         </div>
     );
 }

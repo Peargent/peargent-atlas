@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, History, Pencil, Save, Download, FileJson, FileCode, Video, Image as ImageIcon } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, History, Pencil, Check, Save, Download, FileJson, FileCode, Video, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -21,6 +21,8 @@ interface SidebarProps {
     tabs?: { id: string; name: string }[];
     activeTabId?: string | null;
     onTabChange?: (id: string) => void;
+    onCloseTab?: (id: string) => void;
+    onRenameTab?: (id: string, name: string) => void;
     onNewTab?: () => void;
 }
 
@@ -258,34 +260,101 @@ const MobileTabSwitcher = ({
     tabs,
     activeTabId,
     onTabChange,
+    onCloseTab,
+    onRenameTab,
     onNewTab
 }: {
     tabs?: { id: string; name: string }[];
     activeTabId?: string | null;
     onTabChange?: (id: string) => void;
+    onCloseTab?: (id: string) => void;
+    onRenameTab?: (id: string, name: string) => void;
     onNewTab?: () => void;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [editingTabId, setEditingTabId] = useState<string | null>(null);
+    const [editName, setEditName] = useState('');
 
     if (!tabs || !onTabChange || !onNewTab) return null;
+
+    const handleStartEdit = (tab: { id: string; name: string }) => {
+        setEditingTabId(tab.id);
+        setEditName(tab.name);
+    };
+
+    const handleSaveEdit = () => {
+        if (editingTabId && onRenameTab && editName.trim()) {
+            onRenameTab(editingTabId, editName.trim());
+        }
+        setEditingTabId(null);
+        setEditName('');
+    };
 
     return (
         <div className="px-4 mb-4 md:hidden">
             <div className="relative">
-                <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="w-full flex items-center justify-between p-3 rounded-xl bg-card/50 border border-white/10 text-left"
-                >
-                    <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-full flex items-center gap-3 p-3 rounded-xl bg-card/50 border border-white/10 text-left">
+                    {onRenameTab && activeTabId ? (
+                        editingTabId === activeTabId ? (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSaveEdit();
+                                }}
+                                className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-500 shrink-0 hover:bg-emerald-500/30 transition-colors"
+                                title="Confirm rename"
+                            >
+                                <Check className="w-4 h-4" />
+                            </button>
+                        ) : (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const activeTab = tabs.find(t => t.id === activeTabId);
+                                    if (activeTab) handleStartEdit(activeTab);
+                                }}
+                                className="p-1.5 rounded-lg bg-primary/20 text-primary shrink-0 hover:bg-primary/30 transition-colors"
+                                title="Rename atlas"
+                            >
+                                <Pencil className="w-4 h-4" />
+                            </button>
+                        )
+                    ) : (
                         <div className="p-1.5 rounded-lg bg-primary/20 text-primary shrink-0">
                             <Box className="w-4 h-4" />
                         </div>
-                        <span className="font-medium truncate">
-                            {tabs.find(t => t.id === activeTabId)?.name || "Select Project"}
-                        </span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                        {editingTabId === activeTabId && activeTabId ? (
+                            <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                onBlur={handleSaveEdit}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveEdit();
+                                    if (e.key === 'Escape') {
+                                        setEditingTabId(null);
+                                        setEditName('');
+                                    }
+                                }}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full bg-transparent border-b border-primary focus:outline-none font-medium"
+                            />
+                        ) : (
+                            <span className="font-medium truncate block">
+                                {tabs.find(t => t.id === activeTabId)?.name || "Select Project"}
+                            </span>
+                        )}
                     </div>
-                    <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
-                </button>
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="p-1 hover:bg-white/10 rounded transition-colors shrink-0"
+                    >
+                        <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                    </button>
+                </div>
 
                 <AnimatePresence>
                     {isOpen && (
@@ -296,30 +365,66 @@ const MobileTabSwitcher = ({
                             className="absolute top-full left-0 right-0 mt-2 bg-popover border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 py-1"
                         >
                             <div className="px-2 pb-2 mb-2 border-b border-white/5">
-                                <span className="text-xs font-medium text-muted-foreground px-2 py-2 block">Projects</span>
+                                <span className="text-xs font-medium text-muted-foreground px-2 py-2 block">Atlases</span>
                             </div>
 
                             <div className="max-h-[200px] overflow-y-auto px-2 space-y-1">
                                 {tabs.map(tab => (
-                                    <button
+                                    <div
                                         key={tab.id}
-                                        onClick={() => {
-                                            onTabChange(tab.id);
-                                            setIsOpen(false);
-                                        }}
                                         className={cn(
-                                            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors",
+                                            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors group",
                                             activeTabId === tab.id
                                                 ? "bg-primary/10 text-primary"
                                                 : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                                         )}
                                     >
-                                        <div className={cn(
-                                            "w-1.5 h-1.5 rounded-full shrink-0",
-                                            activeTabId === tab.id ? "bg-primary" : "bg-transparent"
-                                        )} />
-                                        <span className="truncate">{tab.name}</span>
-                                    </button>
+                                        {editingTabId === tab.id ? (
+                                            <input
+                                                type="text"
+                                                value={editName}
+                                                onChange={(e) => setEditName(e.target.value)}
+                                                onBlur={handleSaveEdit}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleSaveEdit();
+                                                    if (e.key === 'Escape') {
+                                                        setEditingTabId(null);
+                                                        setEditName('');
+                                                    }
+                                                }}
+                                                autoFocus
+                                                className="flex-1 bg-transparent border-b border-primary focus:outline-none text-sm py-0.5"
+                                            />
+                                        ) : (
+                                            <button
+                                                className="flex-1 flex items-center gap-2 text-left"
+                                                onClick={() => {
+                                                    onTabChange(tab.id);
+                                                    setIsOpen(false);
+                                                }}
+                                            >
+                                                <div className={cn(
+                                                    "w-1.5 h-1.5 rounded-full shrink-0",
+                                                    activeTabId === tab.id ? "bg-primary" : "bg-transparent"
+                                                )} />
+                                                <span className="truncate">{tab.name}</span>
+                                            </button>
+                                        )}
+                                        {onCloseTab && tabs.length > 1 && editingTabId !== tab.id && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onCloseTab(tab.id);
+                                                }}
+                                                className="p-1 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-colors"
+                                                title="Close atlas"
+                                            >
+                                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M18 6L6 18M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
 
@@ -335,7 +440,7 @@ const MobileTabSwitcher = ({
                                         <div className="w-2.5 h-0.5 bg-primary rounded-full" />
                                         <div className="w-0.5 h-2.5 bg-primary rounded-full absolute" />
                                     </div>
-                                    New Project
+                                    New Atlas
                                 </button>
                             </div>
                         </motion.div>
@@ -417,6 +522,8 @@ export default function AtlasSidebar({
     tabs,
     activeTabId,
     onTabChange,
+    onCloseTab,
+    onRenameTab,
     onNewTab,
 }: SidebarProps & { isCollapsed?: boolean }) {
     const [searchQuery, setSearchQuery] = useState('');
@@ -522,6 +629,8 @@ export default function AtlasSidebar({
                         tabs={tabs}
                         activeTabId={activeTabId}
                         onTabChange={onTabChange}
+                        onCloseTab={onCloseTab}
+                        onRenameTab={onRenameTab}
                         onNewTab={onNewTab}
                     />
                 )}
