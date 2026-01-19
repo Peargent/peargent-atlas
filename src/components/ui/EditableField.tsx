@@ -804,9 +804,9 @@ export const FIELD_OPTIONS = {
         { value: 'redis', label: 'Redis' },
     ],
     router_type: [
-        { value: 'round_robin', label: 'Round Robin (Simple)' },
         { value: 'routing_agent', label: 'Routing Agent (AI)' },
         { value: 'semantic_router', label: 'Semantic Router (Embedding)' },
+        { value: 'round_robin', label: 'Round Robin (Simple)' },
     ],
     model_provider: [
         { value: 'GroqModel', label: 'Groq' },

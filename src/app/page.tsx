@@ -77,6 +77,42 @@ const getNodesBounds = (nodes: ReactFlowNode[]) => {
 
 const STORAGE_KEY = 'peargent_atlas_tabs';
 
+// Helper to generate router auto-fill values based on connected agents
+const generateRouterAutoFill = (agents: any[]) => {
+    if (!agents || agents.length === 0) {
+        return {
+            name: 'Router',
+            description: 'Routes requests to the appropriate agent.',
+            persona: 'You are a routing agent that directs requests to the appropriate specialist agent.'
+        };
+    }
+
+    const agentNames = agents.map((a: any) => a.name || 'Agent').filter(Boolean);
+    const agentDescriptions = agents.map((a: any) => a.description || a.persona || '').filter(Boolean);
+
+    // Keep name as 'Router' (not auto-generated)
+
+    // Generate description based on agent count and names
+    const description = agentNames.length === 1
+        ? `Routes requests to ${agentNames[0]}.`
+        : agentNames.length <= 3
+            ? `Routes requests between ${agentNames.join(', ')}.`
+            : `Routes requests between ${agents.length} agents: ${agentNames.slice(0, 3).join(', ')}${agentNames.length > 3 ? `, and ${agentNames.length - 3} more` : ''}.`;
+
+    // Generate persona based on agent capabilities
+    const agentCapabilities = agentDescriptions.length > 0
+        ? `The available agents are:\n${agents.map((a: any, i: number) => `- ${a.name || `Agent ${i + 1}`}: ${a.description || a.persona || 'No description'}`).join('\n')}`
+        : agentNames.map((n: string) => n).join(', ');
+
+    const persona = `You are an intelligent routing agent responsible for directing user requests to the most appropriate specialist agent.
+
+${agentCapabilities}
+
+Analyze each incoming request and determine which agent is best suited to handle it based on their specialization. Always route to the most relevant agent.`;
+
+    return { name: 'Router', description, persona };
+};
+
 const generateUUID = () => {
     // Try native crypto.randomUUID first
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -468,8 +504,28 @@ export default function AtlasPage() {
 
                     if (isProject && newData.data.pool) {
                         newData.data.pool = { ...newData.data.pool, agents: newAgents };
+
+                        // Auto-update router persona if it exists and is routing_agent type
+                        if (newData.data.pool.router && newData.data.pool.router.type === 'routing_agent') {
+                            const autoFill = generateRouterAutoFill(newAgents);
+                            newData.data.pool.router = {
+                                ...newData.data.pool.router,
+                                description: autoFill.description,
+                                persona: autoFill.persona
+                            };
+                        }
                     } else {
                         newData.data = { ...newData.data, agents: newAgents };
+
+                        // Auto-update router persona if it exists and is routing_agent type
+                        if (newData.data.router && newData.data.router.type === 'routing_agent') {
+                            const autoFill = generateRouterAutoFill(newAgents);
+                            newData.data.router = {
+                                ...newData.data.router,
+                                description: autoFill.description,
+                                persona: autoFill.persona
+                            };
+                        }
                     }
                 }
             } else if (detailsNodeType === 'router' && targetRoot) {
@@ -1165,13 +1221,18 @@ export default function AtlasPage() {
             return;
         }
 
-        // Create the Router
+        // Get pool agents for auto-fill
+        const poolAgents = isProject ? (currentData.pool?.agents || []) : (currentData.agents || []);
+        const autoFill = generateRouterAutoFill(poolAgents);
+
+        // Create the Router with auto-filled values
         const newRouter = {
             _id: crypto.randomUUID(),
-            name: 'Router',
-            persona: 'You are a routing agent that directs requests to the appropriate specialist agent.',
+            name: autoFill.name,
+            description: autoFill.description,
+            persona: autoFill.persona,
             model: 'gpt-4o',
-            type: 'semantic_router',
+            type: 'routing_agent',
             tracing: null,
             routes: []
         };
@@ -1395,12 +1456,32 @@ export default function AtlasPage() {
                     unassigned_agents: unassigned,
                     pool: { ...container, agents: newAgentsList }
                 };
+
+                // Auto-update router if it exists and is routing_agent type
+                if (newData.data.pool.router && newData.data.pool.router.type === 'routing_agent') {
+                    const autoFill = generateRouterAutoFill(newAgentsList);
+                    newData.data.pool.router = {
+                        ...newData.data.pool.router,
+                        description: autoFill.description,
+                        persona: autoFill.persona
+                    };
+                }
             } else {
                 newData.data = {
                     ...newData.data,
                     agents: newAgentsList,
                     unassigned_agents: unassigned
                 };
+
+                // Auto-update router if it exists and is routing_agent type
+                if (newData.data.router && newData.data.router.type === 'routing_agent') {
+                    const autoFill = generateRouterAutoFill(newAgentsList);
+                    newData.data.router = {
+                        ...newData.data.router,
+                        description: autoFill.description,
+                        persona: autoFill.persona
+                    };
+                }
             }
 
             return { ...tab, data: newData };
@@ -1930,6 +2011,16 @@ export default function AtlasPage() {
                                     oldId: `${agentId}-history`,
                                     newId: `agent-unassigned-${newAgentId}-history`
                                 });
+                            }
+
+                            // Auto-update router if it exists and is routing_agent type
+                            if (pool.router && pool.router.type === 'routing_agent') {
+                                const autoFill = generateRouterAutoFill(pool.agents);
+                                pool.router = {
+                                    ...pool.router,
+                                    description: autoFill.description,
+                                    persona: autoFill.persona
+                                };
                             }
                         }
                     }

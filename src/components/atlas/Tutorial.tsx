@@ -222,7 +222,7 @@ export const createTutorialData = () => {
         name: 'Main Pool',
         router: {
             _id: routerId,
-            type: 'semantic',
+            type: 'routing_agent',
             routing_agent: null,
             routes: []
         },

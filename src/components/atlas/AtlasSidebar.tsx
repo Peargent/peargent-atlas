@@ -109,7 +109,7 @@ const buildPoolChildren = (data: any): TreeNode[] => {
     if (data.router) {
         children.push({
             id: 'router-main',
-            label: data.router.name,
+            label: data.router.name || 'Router',
             type: 'router',
             icon: Network,
         });
