@@ -43,6 +43,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Input validation: Limit prompt length to prevent abuse
+        if (prompt.length > 10000) {
+            return NextResponse.json(
+                { error: 'Prompt is too long. Maximum 10,000 characters allowed.' },
+                { status: 400 }
+            );
+        }
+
+        // Sanitize previousResponseId if provided
+        if (previousResponseId && (typeof previousResponseId !== 'string' || previousResponseId.length > 200)) {
+            return NextResponse.json(
+                { error: 'Invalid previousResponseId' },
+                { status: 400 }
+            );
+        }
+
         // Azure OpenAI Configuration
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT;
         const azureApiKey = process.env.AZURE_OPENAI_API_KEY;

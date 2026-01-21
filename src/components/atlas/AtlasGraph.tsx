@@ -351,7 +351,6 @@ export default function AtlasGraph({
             }
         }));
         setEdges(edgesWithDelete);
-        setEdges(edgesWithDelete);
     }, [data, nodePositions, setNodes, setEdges, isTutorial]);
 
 
