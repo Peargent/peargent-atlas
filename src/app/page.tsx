@@ -180,11 +180,15 @@ export default function AtlasPage() {
     }, []);
 
     // Push current tab state to history (call before mutations)
-    const pushToHistory = useCallback((tabId: string, data: any) => {
+    // Now stores both data AND node positions to preserve visual layout
+    const pushToHistory = useCallback((tabId: string, data: any, positions?: Record<string, { x: number, y: number }>) => {
         if (!tabId || !data) return;
 
         const history = historyRef.current[tabId] || [];
-        const snapshot = JSON.parse(JSON.stringify(data));
+        const snapshot = {
+            data: JSON.parse(JSON.stringify(data)),
+            positions: positions ? JSON.parse(JSON.stringify(positions)) : {}
+        };
         history.push(snapshot);
 
         // Limit history size
@@ -192,7 +196,6 @@ export default function AtlasPage() {
             history.shift();
         }
 
-        historyRef.current[tabId] = history;
         historyRef.current[tabId] = history;
         // Clear future on new action
         futureRef.current[tabId] = [];
@@ -232,7 +235,7 @@ export default function AtlasPage() {
         setNodePositions({});
     }, [activeTabId]);
 
-    // Undo handler
+    // Undo handler - now restores both data AND positions
     const handleUndo = useCallback(() => {
         if (!activeTabId) return;
 
@@ -242,27 +245,37 @@ export default function AtlasPage() {
             return;
         }
 
-        const previousState = history.pop();
+        const previousSnapshot = history.pop();
         historyRef.current[activeTabId] = history;
+
+        // Handle both old format (just data) and new format (data + positions)
+        const previousData = previousSnapshot?.data ?? previousSnapshot;
+        const previousPositions = previousSnapshot?.positions ?? {};
 
         // Save current state to future for redo
         const currentTab = tabs.find(t => t.id === activeTabId);
         if (currentTab?.data) {
             const future = futureRef.current[activeTabId] || [];
-            future.push(JSON.parse(JSON.stringify(currentTab.data)));
+            future.push({
+                data: JSON.parse(JSON.stringify(currentTab.data)),
+                positions: JSON.parse(JSON.stringify(nodePositions))
+            });
             futureRef.current[activeTabId] = future;
         }
 
-        // Restore previous state
+        // Restore previous state (data)
         setTabs(prev => prev.map(tab => {
             if (tab.id !== activeTabId) return tab;
-            return { ...tab, data: previousState };
+            return { ...tab, data: previousData };
         }));
 
-        // showNotification("Undo");
-    }, [activeTabId, tabs, showNotification]);
+        // Restore previous positions
+        setNodePositions(previousPositions);
 
-    // Redo handler
+        // showNotification("Undo");
+    }, [activeTabId, tabs, nodePositions]);
+
+    // Redo handler - now restores both data AND positions
     const handleRedo = useCallback(() => {
         if (!activeTabId) return;
 
@@ -272,25 +285,35 @@ export default function AtlasPage() {
             return;
         }
 
-        const nextState = future.pop();
+        const nextSnapshot = future.pop();
         futureRef.current[activeTabId] = future;
+
+        // Handle both old format (just data) and new format (data + positions)
+        const nextData = nextSnapshot?.data ?? nextSnapshot;
+        const nextPositions = nextSnapshot?.positions ?? {};
 
         // Save current state to history
         const currentTab = tabs.find(t => t.id === activeTabId);
         if (currentTab?.data) {
             const history = historyRef.current[activeTabId] || [];
-            history.push(JSON.parse(JSON.stringify(currentTab.data)));
+            history.push({
+                data: JSON.parse(JSON.stringify(currentTab.data)),
+                positions: JSON.parse(JSON.stringify(nodePositions))
+            });
             historyRef.current[activeTabId] = history;
         }
 
-        // Restore next state
+        // Restore next state (data)
         setTabs(prev => prev.map(tab => {
             if (tab.id !== activeTabId) return tab;
-            return { ...tab, data: nextState };
+            return { ...tab, data: nextData };
         }));
 
+        // Restore next positions
+        setNodePositions(nextPositions);
+
         // showNotification("Redo");
-    }, [activeTabId, tabs, showNotification]);
+    }, [activeTabId, tabs, nodePositions]);
 
     // Keyboard listener for Undo/Redo
     useEffect(() => {
@@ -781,6 +804,11 @@ export default function AtlasPage() {
     // Add Agent handler - directly adds agent with random slug
     // Add Agent handler - adds to pool or unassigned
     const handleAddAgent = useCallback((parentId?: string, position?: { x: number, y: number }) => {
+        if (!activeTabId || !activeTab?.data) return;
+
+        // Save current state to history for undo
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
+
         const randomSlug = Math.random().toString(36).substring(2, 6);
         const agentName = `New Agent ${randomSlug}`;
         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -870,6 +898,9 @@ export default function AtlasPage() {
     // Add Tool handler - adds to agent or unassigned
     const handleAddTool = useCallback((agentId?: string, position?: { x: number, y: number }) => {
         if (!activeTabId || !activeTab?.data) return;
+
+        // Save current state to history for undo
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
 
         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
@@ -1210,6 +1241,9 @@ export default function AtlasPage() {
     const handleAddRouter = useCallback((position?: { x: number, y: number }) => {
         if (!activeTabId || !activeTab?.data) return;
 
+        // Save current state to history for undo
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
+
         const currentData = activeTab.data.data;
 
         // Check if pool already has a router (for assigned router)
@@ -1310,6 +1344,9 @@ export default function AtlasPage() {
     // Add Pool handler
     const handleAddPool = useCallback((position?: { x: number, y: number }) => {
         if (!activeTabId || !activeTab?.data) return;
+
+        // Save current state to history for undo
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
 
         setTabs(prev => prev.map(tab => {
             if (tab.id !== activeTabId) return tab;
@@ -1495,9 +1532,20 @@ export default function AtlasPage() {
         setNodePositions(prev => ({ ...prev, [nodeId]: position }));
     }, []);
 
+    // Handle node drag start - save state to history for undo
+    const handleNodeDragStart = useCallback(() => {
+        if (!activeTabId || !activeTab?.data) return;
+
+        // Save current state to history before the drag changes positions
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
+    }, [activeTabId, activeTab, nodePositions, pushToHistory]);
+
     // Add History handler
     const handleAddHistory = useCallback((parentId?: string, position?: { x: number, y: number }) => {
         if (!activeTabId || !activeTab?.data) return;
+
+        // Save current state to history for undo
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
 
         const currentData = activeTab.data.data;
         const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -1842,7 +1890,7 @@ export default function AtlasPage() {
         if (!activeTabId || !activeTab?.data) return;
 
         // Save current state to history for undo
-        pushToHistory(activeTabId, activeTab.data);
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
 
         // Track ID changes for position transfer
         const positionTransfers: { oldId: string, newId: string }[] = [];
@@ -2121,7 +2169,7 @@ export default function AtlasPage() {
         if (nodeIds.length === 0) return;
 
         // Save current state to history for undo
-        pushToHistory(activeTabId, activeTab.data);
+        pushToHistory(activeTabId, activeTab.data, nodePositions);
 
         setTabs(prev => prev.map(tab => {
             if (tab.id !== activeTabId) return tab;
@@ -3137,6 +3185,7 @@ export default function AtlasPage() {
                             onConnectRouterToPool={handleConnectRouterToPool}
                             nodePositions={nodePositions}
                             onNodePositionChange={handleNodePositionChange}
+                            onNodeDragStart={handleNodeDragStart}
                             onDisconnect={handleDisconnect}
                             isTutorial={activeTab?.isTutorial}
                             initialViewport={activeTab?.isTutorial ? tutorialViewport : undefined}

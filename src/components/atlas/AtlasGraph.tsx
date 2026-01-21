@@ -121,6 +121,7 @@ export default function AtlasGraph({
     onConnectRouterToPool,
     nodePositions,
     onNodePositionChange,
+    onNodeDragStart,
     onDisconnect,
     isTutorial,
     initialViewport
@@ -144,6 +145,7 @@ export default function AtlasGraph({
     onConnectRouterToPool?: (routerId: string, poolId: string, position?: { x: number, y: number }) => void;
     nodePositions?: Record<string, { x: number, y: number }>;
     onNodePositionChange?: (nodeId: string, position: { x: number, y: number }) => void;
+    onNodeDragStart?: () => void;
     onDisconnect?: (sourceId: string, targetId: string) => void;
     isTutorial?: boolean;
     initialViewport?: { x: number, y: number, zoom: number };
@@ -438,6 +440,11 @@ export default function AtlasGraph({
         }
     };
 
+    // Handle node drag start to save state for undo
+    const handleNodeDragStart = () => {
+        onNodeDragStart?.();
+    };
+
     // Handle node drag stop to persist manual position changes
     const handleNodeDragStop = (_event: React.MouseEvent, node: Node) => {
         if (onNodePositionChange && node.position) {
@@ -618,6 +625,7 @@ export default function AtlasGraph({
                 onEdgesChange={onEdgesChange}
                 onNodesDelete={onNodesDelete}
                 onConnect={onConnect}
+                onNodeDragStart={handleNodeDragStart}
                 onNodeDragStop={handleNodeDragStop}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}

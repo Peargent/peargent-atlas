@@ -222,7 +222,17 @@ export const createTutorialData = () => {
         name: 'Main Pool',
         router: {
             _id: routerId,
+            name: 'Router',
             type: 'routing_agent',
+            description: 'Routes requests between Research Agent, Writer Agent.',
+            persona: `You are an intelligent routing agent responsible for directing user requests to the most appropriate specialist agent.
+
+The available agents are:
+- Research Agent: You are an expert researcher who finds accurate information.
+- Writer Agent: You are a creative writer who produces engaging content.
+
+Analyze each incoming request and determine which agent is best suited to handle it based on their specialization. Always route to the most relevant agent.`,
+            model: 'gpt-4o',
             routing_agent: null,
             routes: []
         },
