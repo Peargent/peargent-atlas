@@ -181,13 +181,31 @@ export default function AtlasPage() {
 
     // Push current tab state to history (call before mutations)
     // Now stores both data AND node positions to preserve visual layout
-    const pushToHistory = useCallback((tabId: string, data: any, positions?: Record<string, { x: number, y: number }>) => {
+    const pushToHistory = useCallback((tabId: string, data: any, manualPositions?: Record<string, { x: number, y: number }>) => {
         if (!tabId || !data) return;
+
+        // Get the current tab to extract positions from layout nodes
+        const currentTab = tabs.find(t => t.id === tabId);
+
+        // Build complete positions map from layout nodes
+        const allPositions: Record<string, { x: number, y: number }> = {};
+        if (currentTab?.layout?.nodes) {
+            currentTab.layout.nodes.forEach(node => {
+                if (node.position) {
+                    allPositions[node.id] = { x: node.position.x, y: node.position.y };
+                }
+            });
+        }
+
+        // Merge with any manual position overrides
+        if (manualPositions) {
+            Object.assign(allPositions, manualPositions);
+        }
 
         const history = historyRef.current[tabId] || [];
         const snapshot = {
             data: JSON.parse(JSON.stringify(data)),
-            positions: positions ? JSON.parse(JSON.stringify(positions)) : {}
+            positions: JSON.parse(JSON.stringify(allPositions))
         };
         history.push(snapshot);
 
@@ -199,7 +217,7 @@ export default function AtlasPage() {
         historyRef.current[tabId] = history;
         // Clear future on new action
         futureRef.current[tabId] = [];
-    }, []);
+    }, [tabs]);
 
     // Draggable Tabs Logic
     const tabsContainerRef = useRef<HTMLDivElement>(null);
@@ -255,10 +273,22 @@ export default function AtlasPage() {
         // Save current state to future for redo
         const currentTab = tabs.find(t => t.id === activeTabId);
         if (currentTab?.data) {
+            // Build complete positions map from current layout nodes
+            const currentPositions: Record<string, { x: number, y: number }> = {};
+            if (currentTab.layout?.nodes) {
+                currentTab.layout.nodes.forEach(node => {
+                    if (node.position) {
+                        currentPositions[node.id] = { x: node.position.x, y: node.position.y };
+                    }
+                });
+            }
+            // Merge with manual positions
+            Object.assign(currentPositions, nodePositions);
+
             const future = futureRef.current[activeTabId] || [];
             future.push({
                 data: JSON.parse(JSON.stringify(currentTab.data)),
-                positions: JSON.parse(JSON.stringify(nodePositions))
+                positions: JSON.parse(JSON.stringify(currentPositions))
             });
             futureRef.current[activeTabId] = future;
         }
@@ -295,10 +325,22 @@ export default function AtlasPage() {
         // Save current state to history
         const currentTab = tabs.find(t => t.id === activeTabId);
         if (currentTab?.data) {
+            // Build complete positions map from current layout nodes
+            const currentPositions: Record<string, { x: number, y: number }> = {};
+            if (currentTab.layout?.nodes) {
+                currentTab.layout.nodes.forEach(node => {
+                    if (node.position) {
+                        currentPositions[node.id] = { x: node.position.x, y: node.position.y };
+                    }
+                });
+            }
+            // Merge with manual positions
+            Object.assign(currentPositions, nodePositions);
+
             const history = historyRef.current[activeTabId] || [];
             history.push({
                 data: JSON.parse(JSON.stringify(currentTab.data)),
-                positions: JSON.parse(JSON.stringify(nodePositions))
+                positions: JSON.parse(JSON.stringify(currentPositions))
             });
             historyRef.current[activeTabId] = history;
         }
