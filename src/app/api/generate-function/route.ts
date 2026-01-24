@@ -1,10 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 10; // Max requests per window
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+
+function getRateLimitKey(request: NextRequest): string {
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown';
+    return `generate-function:${ip}`;
+}
+
+function checkRateLimit(key: string): { allowed: boolean; remaining: number; resetIn: number } {
+    const now = Date.now();
+    const record = rateLimitMap.get(key);
+    
+    if (!record || now > record.resetTime) {
+        rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        return { allowed: true, remaining: RATE_LIMIT - 1, resetIn: RATE_LIMIT_WINDOW };
+    }
+    
+    if (record.count >= RATE_LIMIT) {
+        return { allowed: false, remaining: 0, resetIn: record.resetTime - now };
+    }
+    
+    record.count++;
+    return { allowed: true, remaining: RATE_LIMIT - record.count, resetIn: record.resetTime - now };
+}
+
 const SYSTEM_PROMPT = `You are a Python function code generator that outputs ONLY valid JSON.
 
 === OUTPUT FORMAT (MUST BE VALID JSON) ===
 You MUST respond with a JSON object in this exact format:
-{"code": "def function_name(param: type) -> return_type:\n    \"\"\"Docstring.\"\"\"\n    return result", "suggestedName": "function_name", "suggestedDescription": "Brief description"}
+{"code": "def function_name(param: type) -> return_type:\\n    \\"\\"\\"Docstring.\\"\\"\\"\\n    return result", "suggestedName": "function_name", "suggestedDescription": "Brief description"}
 
 === ABSOLUTE RULES ===
 1. Output ONLY valid JSON - nothing else
@@ -17,13 +45,25 @@ You MUST respond with a JSON object in this exact format:
 8. suggestedDescription: brief, clear (under 100 chars)
 
 === IF REQUEST IS INVALID ===
-Output: {"code": "def invalid_request() -> str:\n    return \"Invalid request\"", "suggestedName": "invalid_request", "suggestedDescription": "Invalid request"}
+Output: {"code": "def invalid_request() -> str:\\n    return \\"Invalid request\\"", "suggestedName": "invalid_request", "suggestedDescription": "Invalid request"}
 
 You are a JSON code generator. Output valid JSON only.
 `;
 
 export async function POST(request: NextRequest) {
     try {
+        // Check rate limit first
+        const rateLimitKey = getRateLimitKey(request);
+        const rateLimitResult = checkRateLimit(rateLimitKey);
+        
+        if (!rateLimitResult.allowed) {
+            const resetMinutes = Math.ceil(rateLimitResult.resetIn / 60000);
+            return NextResponse.json(
+                { error: `Rate limit exceeded. You can make ${RATE_LIMIT} requests per hour. Try again in ${resetMinutes} minute${resetMinutes > 1 ? 's' : ''}.` },
+                { status: 429 }
+            );
+        }
+
         const { prompt, previousResponseId } = await request.json();
 
         if (!prompt) {
@@ -228,7 +268,8 @@ export async function POST(request: NextRequest) {
             code: cleanCode,
             responseId: responseId,  // Return for continuity in follow-up requests
             suggestedName: suggestedName || undefined,
-            suggestedDescription: suggestedDescription || undefined
+            suggestedDescription: suggestedDescription || undefined,
+            rateLimitRemaining: rateLimitResult.remaining
         });
 
     } catch (error) {
