@@ -401,7 +401,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 )}
 
                 {/* Collapsible How to use Atlas Section */}
-                <div className="w-full max-w-5xl mx-auto px-4 mt-12 transition-all duration-500 ease-in-out">
+                <div className="w-full max-w-5xl mx-auto px-4 mt-6 transition-all duration-500 ease-in-out">
                     <button
                         onClick={() => setIsHelpExpanded(!isHelpExpanded)}
                         className="flex items-center justify-center gap-3 w-full py-3 group"
