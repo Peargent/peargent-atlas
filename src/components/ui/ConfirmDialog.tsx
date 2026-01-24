@@ -86,7 +86,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
-                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[201] w-full max-w-md mx-4"
+                        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[201] w-[calc(100%-2rem)] max-w-md"
                     >
                         <div className="bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
                             {/* Header */}
@@ -121,7 +121,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                                 <button
                                     onClick={() => {
                                         onConfirm();
-                                        onClose();
                                     }}
                                     className={cn(
                                         "px-4 py-2 rounded-lg text-sm font-medium transition-all",

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { type Node as ReactFlowNode, type Edge } from '@xyflow/react';
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/cn";
+import { generateUUID, generateProjectSlug } from "@/lib/utils";
 import * as htmlToImage from 'html-to-image';
 import AtlasGraph from '@/components/atlas/AtlasGraph';
 import AtlasSidebar from '@/components/atlas/AtlasSidebar';
@@ -115,18 +116,7 @@ Analyze each incoming request and determine which agent is best suited to handle
     return { name: 'Router', description, persona };
 };
 
-const generateUUID = () => {
-    // Try native crypto.randomUUID first
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID();
-    }
 
-    // Fallback implementation
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-};
 
 export default function AtlasPage() {
     // State
@@ -164,7 +154,7 @@ export default function AtlasPage() {
     const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
     // Refs
     const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -771,7 +761,7 @@ export default function AtlasPage() {
         // If current tab has no data, set it there
         if (activeTab && activeTab.data === null) {
             setTabs(prev => prev.map(tab =>
-                tab.id === activeTabId ? { ...tab, name: 'Untitled Project', data: emptyProjectData } : tab
+                tab.id === activeTabId ? { ...tab, name: generateProjectSlug(), data: emptyProjectData } : tab
             ));
             setDetailsNode(null);
             setDetailsNodeType(null);
@@ -782,7 +772,7 @@ export default function AtlasPage() {
             // Otherwise create a new tab
             const newTab: AtlasTab = {
                 id: generateUUID(),
-                name: 'Untitled Project',
+                name: generateProjectSlug(),
                 data: emptyProjectData
             };
             setTabs(prev => [...prev, newTab]);
@@ -1308,7 +1298,7 @@ export default function AtlasPage() {
 
         // Create the Router with auto-filled values
         const newRouter = {
-            _id: crypto.randomUUID(),
+            _id: generateUUID(),
             name: autoFill.name,
             description: autoFill.description,
             persona: autoFill.persona,
@@ -2811,36 +2801,42 @@ export default function AtlasPage() {
 
     // Handle Delete Project (Persistent)
     const handleDeleteProject = useCallback((projectId: string) => {
-        // Show custom confirmation dialog
-        setPendingDeleteId(projectId);
+        setPendingDeleteIds([projectId]);
         setDeleteConfirmOpen(true);
     }, []);
 
-    // Confirm delete action
-    const confirmDeleteProject = useCallback(() => {
-        if (!pendingDeleteId) return;
+    // Handle Bulk Delete Projects
+    const handleDeleteProjects = useCallback((projectIds: string[]) => {
+        setPendingDeleteIds(projectIds);
+        setDeleteConfirmOpen(true);
+    }, []);
+
+    // Confirm delete action (handles both single and bulk)
+    const confirmDeleteProjects = useCallback(() => {
+        if (pendingDeleteIds.length === 0) return;
 
         // Remove from persistent storage
         setSavedProjects(prev => {
-            const newProjects = prev.filter(p => p.id !== pendingDeleteId);
+            const newProjects = prev.filter(p => !pendingDeleteIds.includes(p.id));
             localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(newProjects));
             return newProjects;
         });
 
         // Remove from active tabs if open
         setTabs(prev => {
-            const newTabs = prev.filter(t => t.id !== pendingDeleteId);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newTabs)); // Update session storage too
+            const newTabs = prev.filter(t => !pendingDeleteIds.includes(t.id));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newTabs));
             return newTabs;
         });
 
-        if (activeTabId === pendingDeleteId) {
+        if (activeTabId && pendingDeleteIds.includes(activeTabId)) {
             setActiveTabId(null);
         }
 
         // Reset pending delete
-        setPendingDeleteId(null);
-    }, [activeTabId, pendingDeleteId]);
+        setPendingDeleteIds([]);
+        setDeleteConfirmOpen(false); // Ensure dialog closes
+    }, [activeTabId, pendingDeleteIds]);
 
     // Handle Open Project from List
     const handleOpenProject = useCallback((projectId: string) => {
@@ -3425,6 +3421,7 @@ export default function AtlasPage() {
                                 projects={savedProjects}
                                 onOpenProject={handleOpenProject}
                                 onDeleteProject={handleDeleteProject}
+                                onDeleteProjects={handleDeleteProjects}
                             />
                         )}
 
@@ -3822,6 +3819,7 @@ export default function AtlasPage() {
                                         projects={savedProjects}
                                         onOpenProject={handleOpenProject}
                                         onDeleteProject={handleDeleteProject}
+                                        onDeleteProjects={handleDeleteProjects}
                                     />
                                 </motion.div>
                             )}
@@ -3934,12 +3932,15 @@ export default function AtlasPage() {
                 isOpen={deleteConfirmOpen}
                 onClose={() => {
                     setDeleteConfirmOpen(false);
-                    setPendingDeleteId(null);
+                    setPendingDeleteIds([]);
                 }}
-                onConfirm={confirmDeleteProject}
-                title="Delete Project"
-                message="Are you sure you want to delete this project? This action cannot be undone."
-                confirmText="Delete"
+                onConfirm={confirmDeleteProjects}
+                title={pendingDeleteIds.length > 1 ? "Delete Projects" : "Delete Project"}
+                message={pendingDeleteIds.length > 1
+                    ? `Are you sure you want to delete ${pendingDeleteIds.length} projects? This action cannot be undone.`
+                    : "Are you sure you want to delete this project? This action cannot be undone."
+                }
+                confirmText={pendingDeleteIds.length > 1 ? "Delete All" : "Delete"}
                 cancelText="Cancel"
                 variant="danger"
             />

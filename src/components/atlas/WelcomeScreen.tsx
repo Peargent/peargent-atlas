@@ -13,6 +13,7 @@ interface WelcomeScreenProps {
     projects?: any[]; // Using any[] to avoid strict type dependency for now, but should be AtlasTab[]
     onOpenProject?: (id: string) => void;
     onDeleteProject?: (id: string) => void;
+    onDeleteProjects?: (ids: string[]) => void;
 }
 
 // Helper to generate a simple thumbnail from project layout
@@ -107,6 +108,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     projects = [],
     onOpenProject,
     onDeleteProject,
+    onDeleteProjects,
     onTutorial
 }) => {
     const { resolvedTheme } = useTheme();
@@ -114,15 +116,52 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     const [isExampleHovered, setIsExampleHovered] = React.useState(false);
     // Default to collapsed if projects exist, expanded otherwise
     const [isHelpExpanded, setIsHelpExpanded] = React.useState(projects.length === 0);
+    const [selectedProjectIds, setSelectedProjectIds] = React.useState<Set<string>>(new Set());
 
-    // Update expansion state when projects change
+    // Update state when projects change
     React.useEffect(() => {
         if (projects.length > 0) {
             setIsHelpExpanded(false);
         } else {
             setIsHelpExpanded(true);
         }
-    }, [projects.length]);
+
+        // Clean up selection (remove IDs that are no longer in projects)
+        if (selectedProjectIds.size > 0) {
+            const currentProjectIds = new Set(projects.map(p => p.id));
+            setSelectedProjectIds(prev => {
+                const next = new Set(prev);
+                let changed = false;
+                Array.from(next).forEach(id => {
+                    if (!currentProjectIds.has(id)) {
+                        next.delete(id);
+                        changed = true;
+                    }
+                });
+                return changed ? next : prev;
+            });
+        }
+    }, [projects]); // Dependency on projects array reference
+
+    // Handle selection toggle
+    const toggleSelection = (id: string) => {
+        const newSelected = new Set(selectedProjectIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedProjectIds(newSelected);
+    };
+
+    // Handle bulk delete
+    const handleBulkDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onDeleteProjects && selectedProjectIds.size > 0) {
+            onDeleteProjects(Array.from(selectedProjectIds));
+            // Do not clear immediately - wait for projects prop to update
+        }
+    };
 
     return (
         <div className="absolute inset-0 z-10 overflow-y-auto">
@@ -210,24 +249,50 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                 {/* Recent Projects Section - Full Width */}
                 {projects.length > 0 && (
                     <div className="w-full max-w-6xl mx-auto px-4 md:px-8 mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-                        <div className="flex items-center justify-between mb-4 md:mb-6">
+                        <div className="flex items-center justify-between mb-4 md:mb-6 min-h-[40px]">
                             <h3 className="text-lg md:text-xl font-medium text-foreground flex items-center gap-2 md:gap-3">
                                 <span style={{ fontFamily: 'var(--font-instrument-serif), serif' }}>Your Projects</span>
                                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 md:px-2.5 md:py-1 rounded-full font-medium">{projects.length}</span>
                             </h3>
+
+                            {/* Bulk Delete Action (Desktop) */}
+                            {selectedProjectIds.size > 0 && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 transition-all font-medium text-sm animate-in fade-in slide-in-from-right-4"
+                                >
+                                    <span>Delete {selectedProjectIds.size} Selected</span>
+                                </button>
+                            )}
                         </div>
 
                         {/* Mobile: Horizontal list layout */}
                         <div className="flex flex-col gap-2 md:hidden">
                             {[...projects].reverse().map((project) => (
-                                <div key={project.id} className="group relative">
+                                <div key={project.id} className="group relative flex items-center gap-3">
+                                    {/* Mobile Checkbox */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleSelection(project.id);
+                                        }}
+                                        className={cn(
+                                            "w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-all",
+                                            selectedProjectIds.has(project.id)
+                                                ? "bg-primary border-primary text-primary-foreground"
+                                                : "border-muted-foreground/30 bg-background/50"
+                                        )}
+                                    >
+                                        {selectedProjectIds.has(project.id) && <div className="w-2.5 h-2.5 rounded-full bg-current" />}
+                                    </button>
+
                                     <button
                                         onClick={() => onOpenProject?.(project.id)}
-                                        className="w-full rounded-xl overflow-hidden border border-border/50 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 flex items-center gap-3 p-3 text-left"
+                                        className="flex-1 rounded-xl overflow-hidden border border-border/50 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm hover:border-primary/30 transition-all duration-300 flex items-center gap-3 p-3 text-left"
                                     >
                                         {/* Small Thumbnail */}
                                         <div className="w-12 h-12 shrink-0 rounded-lg bg-gradient-to-br from-muted/20 to-muted/5 relative overflow-hidden flex items-center justify-center border border-border/30">
-                                            {project.layout && project.layout.nodes?.length > 0 ? (
+                                            {project.layout ? (
                                                 <ProjectThumbnail layout={project.layout} />
                                             ) : (
                                                 <img src={PearIcon.src || PearIcon} alt="Pear" className="w-5 h-5 opacity-40" style={{ filter: 'brightness(0) saturate(100%) invert(50%) sepia(80%) saturate(400%) hue-rotate(40deg) brightness(95%)' }} />
@@ -240,35 +305,38 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                                                 {project.name}
                                             </div>
                                         </div>
-
-                                        {/* Delete Button - Always visible on mobile */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteProject?.(project.id);
-                                            }}
-                                            className="p-2 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
-                                            title="Delete Project"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                            </svg>
-                                        </button>
                                     </button>
                                 </div>
                             ))}
+
+                            {/* Mobile Bulk Delete Floating Action */}
+                            {selectedProjectIds.size > 0 && (
+                                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in">
+                                    <button
+                                        onClick={handleBulkDelete}
+                                        className="px-6 py-3 rounded-full bg-destructive text-destructive-foreground shadow-xl font-medium text-sm flex items-center gap-2"
+                                    >
+                                        Delete {selectedProjectIds.size}
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* Desktop: Grid layout */}
                         <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                             {[...projects].reverse().map((project) => (
                                 <div key={project.id} className="group relative">
-                                    <button
+                                    <div
                                         onClick={() => onOpenProject?.(project.id)}
-                                        className="w-full rounded-2xl overflow-hidden border border-border/50 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 flex flex-col text-left"
+                                        className={cn(
+                                            "w-full rounded-2xl overflow-hidden border bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm transition-all duration-300 transform hover:-translate-y-1 flex flex-col text-left cursor-pointer relative",
+                                            selectedProjectIds.has(project.id)
+                                                ? "border-primary ring-2 ring-primary/20"
+                                                : "border-border/50 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/5"
+                                        )}
                                     >
                                         {/* Thumbnail Area */}
-                                        <div className="aspect-[16/10] w-full bg-gradient-to-br from-muted/20 to-muted/5 relative overflow-hidden">
+                                        <div className="aspect-[16/10] w-full bg-gradient-to-br from-muted/20 to-muted/5 relative overflow-hidden pointer-events-none">
                                             {project.layout ? (
                                                 <div className="absolute inset-2">
                                                     <ProjectThumbnail layout={project.layout} />
@@ -291,21 +359,41 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                                                 {project.name}
                                             </div>
                                         </div>
-                                    </button>
+                                    </div>
 
-                                    {/* Delete Button - Appears on hover */}
-                                    <button
+                                    {/* Selection Checkbox (Top Left) */}
+                                    <div
+                                        className="absolute top-3 left-3 z-30"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            onDeleteProject?.(project.id);
+                                            toggleSelection(project.id);
                                         }}
-                                        className="absolute top-3 right-3 p-2 rounded-xl bg-background/80 backdrop-blur-md text-muted-foreground opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive z-20 border border-border/50 shadow-sm"
-                                        title="Delete Project"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                        </svg>
-                                    </button>
+                                        <div className={cn(
+                                            "w-5 h-5 rounded-full border flex items-center justify-center transition-all cursor-pointer shadow-sm",
+                                            selectedProjectIds.has(project.id)
+                                                ? "bg-primary border-primary text-primary-foreground opacity-100 scale-110"
+                                                : "bg-background/80 backdrop-blur-sm border-border/50 hover:border-primary/50 opacity-0 group-hover:opacity-100"
+                                        )}>
+                                            {selectedProjectIds.has(project.id) && <div className="w-2 h-2 rounded-full bg-current" />}
+                                        </div>
+                                    </div>
+
+                                    {/* Delete Button - Appears on hover (Only if not selected mode? - keeping for individual delete) */}
+                                    {!selectedProjectIds.has(project.id) && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteProject?.(project.id);
+                                            }}
+                                            className="absolute top-3 right-3 p-2 rounded-xl bg-background/80 backdrop-blur-md text-muted-foreground opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive z-20 border border-border/50 shadow-sm"
+                                            title="Delete Project"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -319,7 +407,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         className="flex items-center justify-center gap-3 w-full py-3 group"
                     >
                         <h3
-                            className="text-2xl text-foreground/80 group-hover:text-foreground transition-colors"
+                            className="text-4xl md:text-3xl text-foreground/80 group-hover:text-foreground transition-colors"
                             style={{ fontFamily: 'var(--font-instrument-serif), serif' }}
                         >
                             How to use Atlas
