@@ -48,7 +48,7 @@ npm run dev
 
 ## Contributing
 
-Contributions are welcome! Please join our [Discord](https://discord.gg/jtNvmjMAYu) to discuss new features or report bugs.
+Contributions are welcome! Please join our [Discord](https://discord.gg/jtNvmjMAYu) to discuss new features or report bugs. Contribution Guidelines are available [here](CONTRIBUTING.md).
 
 ## License
 
