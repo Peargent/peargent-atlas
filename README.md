@@ -1,31 +1,42 @@
+<p align="center">
+  <img src=".github/assets/cinematic-banner-atlas.png" alt="Peargent Atlas Banner">
+</p>
+
 # Peargent Atlas
 
-A Next.js application for visualizing agent architectures using interactive graph visualizations.
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org/)
 
-## Getting Started
+The visual builder for [Peargent](https://github.com/Peargent/peargent) agents. Design, route, and orchestrate complex agent behaviors with an interactive node-based interface.
 
-1. Install dependencies:
+## Features
 
+- **Visual Design** - Drag-and-drop interface to build complex agent architectures
+- **Orchestration** - Define Agent Pools, Routers, and Tools visually
+- **Export to Code** - Generate `.pear` files compatible with the Peargent CLI
+- **Real-time Validation** - Instant feedback on connection logic and configuration
+- **Multi-Tab Interface** - Work on multiple agent systems simultaneously
+- **Responsive** - Fully functional on desktop and mobile devices
+
+## Running Locally
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Peargent/peargent-atlas.git
+cd peargent-atlas
+```
+
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Run the development server:
-
+3. Run the development server:
 ```bash
 npm run dev
 ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Features
-
-- Interactive graph visualization of agent architectures
-- Import and export `.pear` files
-- Multi-tab interface for managing multiple agent configurations
-- Download visualizations as PNG images
-- Responsive design with mobile support
-- Dark/light theme support
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Tech Stack
 
@@ -34,34 +45,11 @@ npm run dev
 - **Tailwind CSS** - Styling
 - **Framer Motion** - Animations
 - **TypeScript** - Type safety
-- **Dagre** - Graph layout algorithm
 
-## Project Structure
+## Contributing
 
-```
-├── app/
-│   ├── page.tsx          # Main application page
-│   ├── layout.tsx        # Root layout
-│   └── globals.css       # Global styles
-├── components/
-│   ├── AtlasGraph.tsx    # Graph visualization component
-│   ├── AtlasSidebar.tsx  # Sidebar navigation
-│   ├── CustomNodes.tsx   # Custom node components
-│   ├── layout.ts         # Graph layout logic
-│   ├── theme-toggle.tsx  # Theme switcher
-│   └── ui/
-│       └── Toast.tsx     # Toast notification component
-└── lib/
-    └── cn.ts             # Utility functions
-```
-
-## Building for Production
-
-```bash
-npm run build
-npm start
-```
+Contributions are welcome! Please join our [Discord](https://discord.gg/jtNvmjMAYu) to discuss new features or report bugs.
 
 ## License
 
-MIT
+Apache License 2.0 - see [LICENSE](LICENSE) file for details.
