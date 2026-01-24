@@ -2735,17 +2735,9 @@ export default function AtlasPage() {
             }
         }
 
-        // If no tabs were loaded, create a new empty tab for welcome screen
+        // If no tabs were loaded, do nothing (show welcome screen)
         if (loadedTabs.length === 0) {
-            const newTab: AtlasTab = {
-                id: generateUUID(),
-                name: 'New Tab',
-                data: null
-            };
-            setTabs([newTab]);
-            setActiveTabId(newTab.id);
-            setIsSidebarCollapsed(true);
-            setIsRightSidebarOpen(false);
+            // No default tab creation
         }
 
         // Load projects (persistent)
