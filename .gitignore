@@ -10,6 +10,7 @@
 !.yarn/releases
 !.yarn/versions
 
+
 # testing
 /coverage
 
@@ -41,3 +42,4 @@ yarn-error.log*
 next-env.d.ts
 
 WARP.md
+peargent_parameters.md
