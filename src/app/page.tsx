@@ -14,6 +14,7 @@ import { Upload, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, PanelL
 import MobileBottomSheet from '@/components/atlas/MobileBottomSheet';
 import { createTutorialData, tutorialViewport } from '@/components/atlas/Tutorial';
 import { WelcomeScreen } from '@/components/atlas/WelcomeScreen';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 
 // Types
@@ -76,6 +77,7 @@ const getNodesBounds = (nodes: ReactFlowNode[]) => {
 };
 
 const STORAGE_KEY = 'peargent_atlas_tabs';
+const PROJECTS_STORAGE_KEY = 'peargent_atlas_projects';
 
 // Helper to generate router auto-fill values based on connected agents
 const generateRouterAutoFill = (agents: any[]) => {
@@ -129,12 +131,13 @@ const generateUUID = () => {
 export default function AtlasPage() {
     // State
     const [tabs, setTabs] = useState<AtlasTab[]>([]);
+    const [savedProjects, setSavedProjects] = useState<AtlasTab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar
-    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); // Desktop sidebar
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Desktop sidebar (collapsed by default for welcome screen)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [detailsNode, setDetailsNode] = useState<any>(null);
     const [detailsNodeType, setDetailsNodeType] = useState<'agent' | 'router' | 'tool' | 'pool' | 'history' | null>(null);
@@ -160,6 +163,8 @@ export default function AtlasPage() {
     const [nodePositions, setNodePositions] = useState<Record<string, { x: number, y: number }>>({});
     const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
     // Refs
     const downloadMenuRef = useRef<HTMLDivElement>(null);
@@ -2715,22 +2720,146 @@ export default function AtlasPage() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // Load saved data and projects on mount
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
+        // Load tabs (session)
+        const savedTabs = localStorage.getItem(STORAGE_KEY);
+        let loadedTabs: AtlasTab[] = [];
+
+        if (savedTabs) {
             try {
-                const parsed = JSON.parse(saved);
+                const parsed = JSON.parse(savedTabs);
                 if (Array.isArray(parsed) && parsed.length > 0) {
+                    loadedTabs = parsed;
                     setTabs(parsed);
-                    setActiveTabId(parsed[0].id);
+                    // Set active tab to the last tab (most recently used)
+                    setActiveTabId(parsed[parsed.length - 1].id);
+                    // Check if the active tab has data to determine sidebar state
+                    const lastTab = parsed[parsed.length - 1];
+                    if (lastTab.data) {
+                        setIsSidebarCollapsed(false);
+                    }
                 }
             } catch (e) {
-                console.error("Failed to load saved atlas state", e);
+                console.error("Failed to parse saved tabs", e);
+            }
+        }
+
+        // If no tabs were loaded, create a new empty tab for welcome screen
+        if (loadedTabs.length === 0) {
+            const newTab: AtlasTab = {
+                id: generateUUID(),
+                name: 'New Tab',
+                data: null
+            };
+            setTabs([newTab]);
+            setActiveTabId(newTab.id);
+            setIsSidebarCollapsed(true);
+            setIsRightSidebarOpen(false);
+        }
+
+        // Load projects (persistent)
+        const savedProjectsData = localStorage.getItem(PROJECTS_STORAGE_KEY);
+        if (savedProjectsData) {
+            try {
+                const parsed = JSON.parse(savedProjectsData);
+                if (Array.isArray(parsed)) {
+                    setSavedProjects(parsed);
+                }
+            } catch (e) {
+                console.error("Failed to parse saved projects", e);
             }
         }
     }, []);
 
+    // Save tabs to local storage whenever they change, AND update saved projects
+    useEffect(() => {
+        if (tabs.length > 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
 
+            // Sync current tabs to savedProjects (add or update)
+            setSavedProjects(prevProjects => {
+                const newProjects = [...prevProjects];
+                let changed = false;
+
+                tabs.forEach(tab => {
+                    // Only save tabs that have data (actual projects)
+                    if (tab.data) {
+                        const index = newProjects.findIndex(p => p.id === tab.id);
+                        if (index >= 0) {
+                            // Update existing project
+                            if (JSON.stringify(newProjects[index]) !== JSON.stringify(tab)) {
+                                newProjects[index] = tab;
+                                changed = true;
+                            }
+                        } else {
+                            // Add new project
+                            newProjects.push(tab);
+                            changed = true;
+                        }
+                    }
+                });
+
+                if (changed) {
+                    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(newProjects));
+                    return newProjects;
+                }
+                return prevProjects;
+            });
+        }
+    }, [tabs]);
+
+    // Handle Delete Project (Persistent)
+    const handleDeleteProject = useCallback((projectId: string) => {
+        // Show custom confirmation dialog
+        setPendingDeleteId(projectId);
+        setDeleteConfirmOpen(true);
+    }, []);
+
+    // Confirm delete action
+    const confirmDeleteProject = useCallback(() => {
+        if (!pendingDeleteId) return;
+
+        // Remove from persistent storage
+        setSavedProjects(prev => {
+            const newProjects = prev.filter(p => p.id !== pendingDeleteId);
+            localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(newProjects));
+            return newProjects;
+        });
+
+        // Remove from active tabs if open
+        setTabs(prev => {
+            const newTabs = prev.filter(t => t.id !== pendingDeleteId);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newTabs)); // Update session storage too
+            return newTabs;
+        });
+
+        if (activeTabId === pendingDeleteId) {
+            setActiveTabId(null);
+        }
+
+        // Reset pending delete
+        setPendingDeleteId(null);
+    }, [activeTabId, pendingDeleteId]);
+
+    // Handle Open Project from List
+    const handleOpenProject = useCallback((projectId: string) => {
+        // Check if already open
+        const isOpen = tabs.find(t => t.id === projectId);
+        if (isOpen) {
+            setActiveTabId(projectId);
+            setIsSidebarCollapsed(false); // Expand sidebar when opening project
+            return;
+        }
+
+        // Load from saved projects
+        const project = savedProjects.find(p => p.id === projectId);
+        if (project) {
+            setTabs(prev => [...prev, project]);
+            setActiveTabId(projectId);
+            setIsSidebarCollapsed(false); // Expand sidebar when opening project
+        }
+    }, [tabs, savedProjects]);
 
     // Download menu items configuration
     const downloadMenuItems = [
@@ -3025,8 +3154,9 @@ export default function AtlasPage() {
 
                                         // Restore the target tab's saved selection or auto-select
                                         if (tab.selectedNodeId) {
-                                            // Restore saved selection
+                                            // Restore saved selection and expand sidebar for tab with data
                                             setSelectedNodeId(tab.selectedNodeId);
+                                            setIsSidebarCollapsed(false);
                                             // Find and open the node details
                                             if (tab.layout?.nodes) {
                                                 const node = tab.layout.nodes.find(n => n.id === tab.selectedNodeId);
@@ -3038,6 +3168,8 @@ export default function AtlasPage() {
                                                 }
                                             }
                                         } else if (tab.data) {
+                                            // Tab has data - expand sidebar
+                                            setIsSidebarCollapsed(false);
                                             // Auto-select in priority: agent > pool > other
                                             let autoSelectId: string | null = null;
                                             let autoSelectNode: any = null;
@@ -3080,9 +3212,11 @@ export default function AtlasPage() {
                                                 setDetailsNode(null);
                                             }
                                         } else {
-                                            // Tab has no data
+                                            // Tab has no data (welcome screen/new tab) - collapse sidebars
                                             setSelectedNodeId(null);
                                             setDetailsNode(null);
+                                            setIsSidebarCollapsed(true);
+                                            setIsRightSidebarOpen(false);
                                         }
                                     }}
                                 >
@@ -3153,6 +3287,29 @@ export default function AtlasPage() {
                         >
                             <Github className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                             <span className="font-medium">{starCount !== null ? starCount.toLocaleString() : 'Star'}</span>
+                        </a>
+
+                        <a
+                            href="https://github.com/Peargent/peargent-atlas/issues/new?labels=bug"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center w-fit px-4 h-9 bg-card hover:bg-muted text-foreground transition-all group rounded-sm text-sm font-medium border border-border"
+                            title="Report a Bug"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 group-hover:scale-110 transition-transform">
+                                <path d="m8 2 1.88 1.88" />
+                                <path d="M14.12 3.88 16 2" />
+                                <path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1" />
+                                <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" />
+                                <path d="M12 20v-9" />
+                                <path d="M6.53 9C4.6 8.8 3 7.1 3 5" />
+                                <path d="M6 13H2" />
+                                <path d="M3 21c0-2.1 1.7-3.9 3.8-4" />
+                                <path d="M20.97 5c0 2.1-1.6 3.8-3.5 4" />
+                                <path d="M22 13h-4" />
+                                <path d="M17.2 17c2.1.1 3.8 1.9 3.8 4" />
+                            </svg>
+                            <span className="font-medium">Bug</span>
                         </a>
                     </div>
                 </div>
@@ -3242,6 +3399,9 @@ export default function AtlasPage() {
                                 onNewProject={handleNewProject}
                                 onImport={handleImportToCurrentTab}
                                 onTutorial={handleTutorial}
+                                projects={savedProjects}
+                                onOpenProject={handleOpenProject}
+                                onDeleteProject={handleDeleteProject}
                             />
                         )}
 
@@ -3636,6 +3796,9 @@ export default function AtlasPage() {
                                         onNewProject={handleNewProject}
                                         onImport={handleFileSelect}
                                         onTutorial={handleTutorial}
+                                        projects={savedProjects}
+                                        onOpenProject={handleOpenProject}
+                                        onDeleteProject={handleDeleteProject}
                                     />
                                 </motion.div>
                             )}
@@ -3742,6 +3905,21 @@ export default function AtlasPage() {
                     )}
                 </AnimatePresence>
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={deleteConfirmOpen}
+                onClose={() => {
+                    setDeleteConfirmOpen(false);
+                    setPendingDeleteId(null);
+                }}
+                onConfirm={confirmDeleteProject}
+                title="Delete Project"
+                message="Are you sure you want to delete this project? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+                variant="danger"
+            />
         </div>
     );
 }   
