@@ -280,9 +280,9 @@ function generatePoolCode(poolData: PoolData): string {
         code += `            router=self.router,\n`;
     }
     
-    if (poolData.max_iter !== undefined) {
-        code += `            max_iter=${poolData.max_iter},\n`;
-    }
+    // Default to 5 if not specified (or 0)
+    const maxIter = poolData.max_iter !== undefined ? poolData.max_iter : 5;
+    code += `            max_iter=${maxIter},\n`;
     
     if (poolData.history) {
         code += `            history=self.history,\n`;

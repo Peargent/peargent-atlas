@@ -241,6 +241,7 @@ Analyze each incoming request and determine which agent is best suited to handle
             type: 'sqlite',
             db_path: './history.db'
         },
+        max_iter: 5,
         agents: [agent1, agent2]
     };
 
