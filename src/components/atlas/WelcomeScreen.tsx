@@ -175,8 +175,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     >
                         {title}
                     </h1>
-                    <p className="text-muted-foreground text-lg mb-10 font-light">
+                    <p className="text-muted-foreground text-lg mb-3 font-light">
                         {subtitle}
+                    </p>
+                    <p className="text-sm text-muted-foreground/60 mb-10">
+                        Select an option below to begin
                     </p>
 
                     {/* Dual Path Cards */}
@@ -192,7 +195,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                             </div>
                             <div className="relative z-10">
                                 <h3 className="font-semibold text-foreground mb-1">Create Atlas</h3>
-                                <p className="text-xs text-muted-foreground leading-relaxed">Build your agent system visually, node by node</p>
+                                <p className="text-xs text-muted-foreground leading-relaxed">Start a new project from scratch</p>
                             </div>
                         </button>
 
@@ -210,7 +213,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                             </div>
                             <div className="relative z-10">
                                 <h3 className="font-semibold text-foreground mb-1">Import .pear File</h3>
-                                <p className="text-xs text-muted-foreground leading-relaxed">Load an existing agent configuration</p>
+                                <p className="text-xs text-muted-foreground leading-relaxed">Open an existing .pear configuration</p>
                             </div>
                         </label>
                     </div>
@@ -239,12 +242,25 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                                     "text-xs text-muted-foreground ml-1 font-normal opacity-70 group-hover:opacity-100 transition-opacity",
                                     isExampleHovered && "opacity-100"
                                 )}>
-                                    Click to load example
+                                    See how Atlas works (Safe demo)
                                 </span>
                             </div>
                         </button>
                     </div>
                 </div>
+
+                {/* Projects Section - Empty State */}
+                {projects.length === 0 && (
+                    <div className="w-full max-w-md mx-auto px-4 mt-8 mb-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                        <div className="text-center p-6 rounded-2xl border border-dashed border-border/40 bg-card/20">
+                            <h3 className="text-sm font-medium text-foreground mb-1">Your Projects</h3>
+                            <p className="text-xs text-muted-foreground">
+                                No projects found yet.<br />
+                                Create a new Atlas or try the Example to get started.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Recent Projects Section - Full Width */}
                 {projects.length > 0 && (
@@ -399,6 +415,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                         </div>
                     </div>
                 )}
+
+                {/* Bridge to How To Use */}
+                <div className="w-full text-center mt-10 -mb-2 opacity-60">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium">New? Learn the basics</p>
+                </div>
 
                 {/* Collapsible How to use Atlas Section */}
                 <div className="w-full max-w-5xl mx-auto px-4 mt-6 transition-all duration-500 ease-in-out">
