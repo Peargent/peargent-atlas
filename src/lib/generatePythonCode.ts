@@ -177,14 +177,14 @@ function getModelCode(
 }
 
 /**
- * Extract unique tools from all agents (only custom tools - core tools are handled by Peargent)
+ * Extract unique tools from all agents (only custom tools - core tools are imported from peargent.tools)
  */
 function extractUniqueTools(agents: AgentData[]): Map<string, ToolData> {
   const toolMap = new Map<string, ToolData>();
 
   agents.forEach((agent) => {
     agent.tools?.forEach((tool) => {
-      // Only include custom tools - core tools are imported by Peargent serializer
+      // Only include custom tools - core tools are imported from peargent.tools
       if (tool.tool_type !== "core" && !toolMap.has(tool.name)) {
         toolMap.set(tool.name, tool);
       }

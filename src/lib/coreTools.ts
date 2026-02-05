@@ -2,7 +2,7 @@
  * Peargent Core Tools Metadata
  * These tools are built into Peargent and don't require custom implementation in Atlas.
  * Atlas only needs to reference them by name in the .pear file.
- * The Peargent serializer handles importing and instantiation.
+ * The generated Python code imports them from peargent.tools at runtime.
  */
 
 export interface CoreTool {
