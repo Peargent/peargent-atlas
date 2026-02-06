@@ -23,7 +23,6 @@ export const CORE_TOOLS: CoreTool[] = [
     description: "Perform mathematical calculations and solve equations",
     category: "Utility",
     importName: "calculator",
-    icon: "🧮",
   },
   {
     id: "extract_text",
@@ -32,7 +31,6 @@ export const CORE_TOOLS: CoreTool[] = [
     description: "Extract text from PDF, HTML, DOCX, and TXT files",
     category: "Document Processing",
     importName: "text_extractor",
-    icon: "📄",
   },
   {
     id: "search_wikipedia",
@@ -41,7 +39,6 @@ export const CORE_TOOLS: CoreTool[] = [
     description: "Search Wikipedia for encyclopedic knowledge",
     category: "Search",
     importName: "wikipedia_tool",
-    icon: "📚",
   },
   {
     id: "send_notification",
@@ -50,7 +47,6 @@ export const CORE_TOOLS: CoreTool[] = [
     description: "Send email notifications via SMTP",
     category: "Communication",
     importName: "email_tool",
-    icon: "📧",
   },
   {
     id: "send_discord_message",
@@ -59,7 +55,6 @@ export const CORE_TOOLS: CoreTool[] = [
     description: "Send messages to Discord channels",
     category: "Communication",
     importName: "discord_tool",
-    icon: "💬",
   },
   {
     id: "datetime_operations",
@@ -69,7 +64,6 @@ export const CORE_TOOLS: CoreTool[] = [
       "Get current date and time, parse dates, calculate time differences",
     category: "Utility",
     importName: "datetime_tool",
-    icon: "🕐",
   },
   {
     id: "web_search",
@@ -78,7 +72,6 @@ export const CORE_TOOLS: CoreTool[] = [
     description: "Search the web for information",
     category: "Search",
     importName: "websearch_tool",
-    icon: "🔍",
   },
 ];
 
@@ -102,7 +95,7 @@ export function isCoreTool(name: string): boolean {
 export function getCoreToolOptions() {
   return CORE_TOOLS.map((tool) => ({
     value: tool.name,
-    label: `${tool.icon || ""} ${tool.displayName}`,
+    label: tool.displayName,
     description: tool.description, // For tooltip
   }));
 }
