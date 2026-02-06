@@ -267,6 +267,7 @@ const ToolDetails = ({
                 tool_type: "core",
                 name: firstCoreTool.name,
                 description: firstCoreTool.description,
+                _importName: firstCoreTool.importName,
                 source_code: null,
                 function_body: null,
               });
@@ -274,6 +275,7 @@ const ToolDetails = ({
               // Switch to custom tool - restore default template
               onBatchChange?.({
                 tool_type: "custom",
+                _importName: undefined,
                 source_code:
                   'def new_tool(param: str) -> str:\n    return "result"',
                 function_body: null,
@@ -296,6 +298,7 @@ const ToolDetails = ({
                 onBatchChange?.({
                   name: selectedTool.name,
                   description: selectedTool.description,
+                  _importName: selectedTool.importName,
                   source_code: null,
                   function_body: null,
                 });
@@ -306,19 +309,22 @@ const ToolDetails = ({
         )}
       </Section>
 
-      {/* Core Tool Info - Read-only display */}
+      {/* Core Tool Info - Display below selection */}
       {isCoreTool && (
-        <Section title="Core Tool Info" icon={Info} color="text-amber-400">
-          <div className="bg-amber-500/10 rounded-lg p-4 border border-amber-500/20 space-y-3">
-            <DetailField label="Name" value={data.name} mono />
-            <DetailField label="Description" value={data.description} />
-            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-amber-500/20">
-              Tool is imported from{" "}
-              <code className="font-mono text-amber-400">peargent.tools</code>{" "}
-              at runtime
+        <div className="px-3 py-3 bg-amber-500/5 rounded-lg border border-amber-500/10 space-y-2">
+          <div className="text-sm text-foreground">{data.name}</div>
+          {data.description && (
+            <div className="text-xs text-muted-foreground">
+              {data.description}
             </div>
+          )}
+          <div className="text-[10px] text-muted-foreground pt-1 border-t border-amber-500/10">
+            Imported from{" "}
+            <code className="font-mono text-amber-400">
+              peargent.tools.{data._importName || data.name}
+            </code>
           </div>
-        </Section>
+        </div>
       )}
 
       {/* Custom Tool Fields - only show for custom tools */}

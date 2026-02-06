@@ -225,14 +225,7 @@ export function ToolNode({ data }: NodeProps) {
         )}
       >
         <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "p-1.5 rounded-lg shadow-md shrink-0",
-              isCoreTool
-                ? "bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-500/20"
-                : "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20",
-            )}
-          >
+          <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shadow-md shadow-amber-500/20 shrink-0">
             <Wrench className="w-4 h-4 text-white" />
           </div>
           <div className="overflow-hidden flex-1">
@@ -247,10 +240,7 @@ export function ToolNode({ data }: NodeProps) {
 
         {/* Badge for core tools */}
         {isCoreTool && (
-          <div
-            className="absolute top-1.5 right-1.5 bg-blue-500 rounded-full w-2 h-2 ring-1 ring-white/20"
-            title="Core Peargent Tool"
-          />
+          <div className="absolute top-1.5 right-1.5 bg-blue-500 rounded-full w-2 h-2 ring-1 ring-white/20 opacity-60 group-hover:opacity-100 transition-opacity" />
         )}
 
         <Handle

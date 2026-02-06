@@ -11,6 +11,7 @@ export interface CoreTool {
   displayName: string;
   description: string;
   category: string;
+  importName: string;
   icon?: string;
 }
 
@@ -21,6 +22,7 @@ export const CORE_TOOLS: CoreTool[] = [
     displayName: "Calculator",
     description: "Perform mathematical calculations and solve equations",
     category: "Utility",
+    importName: "calculator",
     icon: "🧮",
   },
   {
@@ -29,6 +31,7 @@ export const CORE_TOOLS: CoreTool[] = [
     displayName: "Text Extraction",
     description: "Extract text from PDF, HTML, DOCX, and TXT files",
     category: "Document Processing",
+    importName: "text_extractor",
     icon: "📄",
   },
   {
@@ -37,6 +40,7 @@ export const CORE_TOOLS: CoreTool[] = [
     displayName: "Wikipedia Search",
     description: "Search Wikipedia for encyclopedic knowledge",
     category: "Search",
+    importName: "wikipedia_tool",
     icon: "📚",
   },
   {
@@ -45,6 +49,7 @@ export const CORE_TOOLS: CoreTool[] = [
     displayName: "Email",
     description: "Send email notifications via SMTP",
     category: "Communication",
+    importName: "email_tool",
     icon: "📧",
   },
   {
@@ -53,6 +58,7 @@ export const CORE_TOOLS: CoreTool[] = [
     displayName: "Discord",
     description: "Send messages to Discord channels",
     category: "Communication",
+    importName: "discord_tool",
     icon: "💬",
   },
   {
@@ -62,6 +68,7 @@ export const CORE_TOOLS: CoreTool[] = [
     description:
       "Get current date and time, parse dates, calculate time differences",
     category: "Utility",
+    importName: "datetime_tool",
     icon: "🕐",
   },
   {
@@ -70,6 +77,7 @@ export const CORE_TOOLS: CoreTool[] = [
     displayName: "Web Search",
     description: "Search the web for information",
     category: "Search",
+    importName: "websearch_tool",
     icon: "🔍",
   },
 ];
@@ -89,11 +97,12 @@ export function isCoreTool(name: string): boolean {
 }
 
 /**
- * Get core tool options for dropdown
+ * Get core tool options for dropdown (with short labels)
  */
 export function getCoreToolOptions() {
   return CORE_TOOLS.map((tool) => ({
     value: tool.name,
-    label: `${tool.displayName} - ${tool.description}`,
+    label: `${tool.icon || ""} ${tool.displayName}`,
+    description: tool.description, // For tooltip
   }));
 }
