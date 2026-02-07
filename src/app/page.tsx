@@ -11,7 +11,7 @@ import AtlasSidebar from '@/components/atlas/AtlasSidebar';
 import { AtlasLogo } from '@/components/atlas/AtlasLogo';
 import NodeDetailsSidebar from '@/components/atlas/NodeDetailsSidebar';
 import { Toast } from "@/components/ui/Toast";
-import { Upload, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, PanelLeftClose, FileCode, PanelRight, PanelRightClose, Sparkles, FolderOpen, Bot, Network, History, Wrench, Layers, Redo2, Undo2, Menu, ArrowLeft, ArrowRight, Settings, Check, ChevronDown, Github, Database } from "lucide-react";
+import { Upload, X, Plus, Save, Download, FileJson, ImageIcon, PanelLeft, PanelLeftClose, FileCode, PanelRight, PanelRightClose, Sparkles, FolderOpen, Bot, Network, History, Wrench, Layers, Redo2, Undo2, Menu, ArrowLeft, ArrowRight, Settings, Check, ChevronDown, Github, Database, Bug } from "lucide-react";
 import MobileBottomSheet from '@/components/atlas/MobileBottomSheet';
 import { createTutorialData, tutorialViewport } from '@/components/atlas/Tutorial';
 import { WelcomeScreen } from '@/components/atlas/WelcomeScreen';
@@ -3271,7 +3271,7 @@ export default function AtlasPage() {
                     </div>
 
                     {/* Desktop Actions */}
-                    <div className="hidden md:flex items-center h-full gap-2 bg-card/50 backdrop-blur-sm z-20 px-2">
+                    <div className="hidden md:flex items-center gap-2 ml-4 z-20">
                         <div className="relative">
                             <button
                                 onClick={(e) => {
@@ -3281,10 +3281,10 @@ export default function AtlasPage() {
                                     }
                                     handleDownloadPear();
                                 }}
-                                className="flex items-center justify-center w-fit px-4 py-2 h-9 hover:bg-white/5 text-foreground transition-all group border rounded-sm border-border text-sm font-medium"
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1f1f1f] border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-white hover:bg-lime-500/10 hover:border-lime-500/40 dark:hover:bg-[#98c653]/20 dark:hover:border-[#98c653]/40 rounded-sm transition-colors text-sm font-medium h-9"
                                 title="Download .pear file"
                             >
-                                <Download className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-all mr-2" />
+                                <Download className="w-4 h-4" />
                                 <span>Download</span>
                             </button>
                         </div>
@@ -3293,34 +3293,22 @@ export default function AtlasPage() {
                             href="https://github.com/Peargent/peargent"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center justify-center w-fit px-5 h-9 bg-black hover:bg-neutral-900 text-white transition-all group rounded-sm text-sm font-medium border border-border"
+                            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-900 dark:bg-black dark:border-zinc-700 text-white hover:bg-zinc-700 dark:hover:bg-zinc-900/50 dark:hover:text-white dark:hover:border-zinc-500 rounded-sm transition-colors text-sm font-medium h-9"
                             title="Star on GitHub"
                         >
-                            <Github className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium">{starCount !== null ? starCount.toLocaleString() : 'Star'}</span>
+                            <Github className="w-4 h-4" />
+                            <span>{starCount !== null ? starCount.toLocaleString() : 'Star'}</span>
                         </a>
 
                         <a
                             href="https://github.com/Peargent/peargent-atlas/issues/new?labels=bug"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center justify-center w-fit px-4 h-9 bg-card hover:bg-muted text-foreground transition-all group rounded-sm text-sm font-medium border border-border"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1f1f1f] border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-white hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 hover:border-orange-200 dark:hover:border-orange-900/50 rounded-sm transition-colors text-sm font-medium h-9"
                             title="Report a Bug"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 group-hover:scale-110 transition-transform">
-                                <path d="m8 2 1.88 1.88" />
-                                <path d="M14.12 3.88 16 2" />
-                                <path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1" />
-                                <path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" />
-                                <path d="M12 20v-9" />
-                                <path d="M6.53 9C4.6 8.8 3 7.1 3 5" />
-                                <path d="M6 13H2" />
-                                <path d="M3 21c0-2.1 1.7-3.9 3.8-4" />
-                                <path d="M20.97 5c0 2.1-1.6 3.8-3.5 4" />
-                                <path d="M22 13h-4" />
-                                <path d="M17.2 17c2.1.1 3.8 1.9 3.8 4" />
-                            </svg>
-                            <span className="font-medium">Bug</span>
+                            <Bug className="w-4 h-4" />
+                            <span>Bug</span>
                         </a>
                     </div>
                 </div>

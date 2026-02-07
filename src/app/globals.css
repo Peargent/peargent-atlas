@@ -12,15 +12,18 @@
   --popover-foreground: hsl(0 0% 10%);
 
   /* Pear tone system – Vibrant & Modern */
-  --primary: hsl(84, 41%, 47%); /* #7AA846 */
+  --primary: hsl(84, 41%, 47%);
+  /* #7AA846 */
   --primary-foreground: hsl(0, 0%, 100%);
 
   --text: hsl(0 0% 10%);
 
-  --secondary: hsl(0, 0%, 90%); /* Very light pear green */
+  --secondary: hsl(0, 0%, 90%);
+  /* Very light pear green */
   --secondary-foreground: hsl(0, 0%, 30%);
 
-  --accent: hsl(0, 0%, 87%); /* Subtle pear tint */
+  --accent: hsl(0, 0%, 87%);
+  /* Subtle pear tint */
   --accent-foreground: hsl(0, 0%, 40%);
 
   /* Destructive */
@@ -216,7 +219,7 @@
 }
 
 /* Ensure sidebar title is properly aligned */
-[data-sidebar] [data-sidebar-header] > * {
+[data-sidebar] [data-sidebar-header]>* {
   display: flex !important;
   align-items: center !important;
 }
@@ -271,8 +274,8 @@ body {
 
 /* Make bold and underlined text stand out more */
 strong u,
-strong > u,
-u > strong {
+strong>u,
+u>strong {
   color: var(--text);
   text-decoration-color: var(--primary);
   text-decoration-thickness: 2px;
@@ -281,8 +284,8 @@ u > strong {
 }
 
 .dark strong u,
-.dark strong > u,
-.dark u > strong {
+.dark strong>u,
+.dark u>strong {
   color: var(--text);
   text-decoration-color: var(--primary);
 }
