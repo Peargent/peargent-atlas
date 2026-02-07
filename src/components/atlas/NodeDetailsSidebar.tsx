@@ -261,23 +261,25 @@ const ToolDetails = ({
           ]}
           onChange={(v) => {
             if (v === "core") {
-              // Switch to core tool - clear source code and set first core tool
+              // Switch to core tool - save current custom code and set first core tool
               const firstCoreTool = CORE_TOOLS[0];
               onBatchChange?.({
                 tool_type: "core",
                 name: firstCoreTool.name,
                 description: firstCoreTool.description,
                 _importName: firstCoreTool.importName,
+                _previousCustomCode: data.source_code || data.function_body,
                 source_code: null,
                 function_body: null,
               });
             } else {
-              // Switch to custom tool - restore default template
+              // Switch to custom tool - restore previous custom code or use template
+              const previousCode = data._previousCustomCode || 'def new_tool(param: str) -> str:\n    return "result"';
               onBatchChange?.({
                 tool_type: "custom",
                 _importName: undefined,
-                source_code:
-                  'def new_tool(param: str) -> str:\n    return "result"',
+                _previousCustomCode: undefined,
+                source_code: previousCode,
                 function_body: null,
               });
             }

@@ -13,6 +13,7 @@ interface ToolData {
   retry_backoff?: boolean;
   on_error?: string;
   tool_type?: "custom" | "core";
+  _importName?: string;
 }
 
 interface AgentData {
@@ -52,7 +53,7 @@ function generateImports(
   hasRouter: boolean,
   hasHistory: boolean,
   routerType?: string,
-  coreTools?: Set<string>,
+  coreTools?: Map<string, string>,
 ): string {
   const imports = ["create_agent", "create_pool", "create_tool"];
 
@@ -80,10 +81,19 @@ function generateImports(
 from peargent.models import groq
 ${routerType === "round_robin" ? "from peargent._core.router import round_robin_router" : ""}`;
 
-  // Add core tools import if any are used
+  // Add core tools import with aliasing if needed
+  // Map: toolName -> importName (e.g., "extract_text" -> "text_extractor")
   if (coreTools && coreTools.size > 0) {
-    const coreToolsList = Array.from(coreTools).join(", ");
-    importCode += `\nfrom peargent.tools import ${coreToolsList}`;
+    const importStatements: string[] = [];
+    coreTools.forEach((importName, toolName) => {
+      // If importName differs from toolName, use aliasing
+      if (importName !== toolName) {
+        importStatements.push(`${importName} as ${toolName}`);
+      } else {
+        importStatements.push(importName);
+      }
+    });
+    importCode += `\nfrom peargent.tools import ${importStatements.join(", ")}`;
   }
 
   return importCode;
@@ -331,12 +341,15 @@ export function generatePythonCode(
   // Extract unique custom tools (core tools are imported separately)
   const uniqueTools = extractUniqueTools(agents);
 
-  // Extract unique core tool names for import
-  const coreToolNames = new Set<string>();
+  // Extract unique core tool names for import with aliasing
+  // Map: toolName -> importName (e.g., "extract_text" -> "text_extractor")
+  const coreToolNames = new Map<string, string>();
   agents.forEach((agent) => {
     agent.tools?.forEach((tool) => {
       if (tool.tool_type === "core") {
-        coreToolNames.add(tool.name);
+        const toolName = tool.name;
+        const importName = tool._importName || tool.name;
+        coreToolNames.set(toolName, importName);
       }
     });
   });
