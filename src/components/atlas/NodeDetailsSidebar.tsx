@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { X, Bot, Network, Database, Wrench, Code, Settings, RefreshCw, AlertCircle, FileCode, List, Type, User, Brain, GripVertical, History, MessageSquare, PanelRightClose, Plus, MousePointerClick } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { X, Bot, Network, Database, Wrench, Code, Settings, RefreshCw, AlertCircle, FileCode, List, Type, User, Brain, GripVertical, History, MessageSquare, PanelRightClose, Plus, MousePointerClick, Info } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { EditableField, FIELD_OPTIONS } from '@/components/ui/EditableField';
+import { NodeHelpPanel } from './NodeHelpPanel';
 
 interface NodeDetailsSidebarProps {
     node: any;
@@ -158,7 +159,17 @@ const ToolDetails = ({ data, onChange, onBatchChange }: { data: any; onChange: (
                     <EditableField label="Timeout" value={data.timeout} type="number" onChange={(v) => onChange('timeout', v)} mono placeholder="None" color="text-amber-400" />
                     <EditableField label="On Error" value={data.on_error} type="select" options={FIELD_OPTIONS.on_error} onChange={(v) => onChange('on_error', v)} color="text-amber-400" />
                 </div>
-                <EditableField label="Retry Backoff" value={data.retry_backoff} type="boolean" onChange={(v) => onChange('retry_backoff', v)} color="text-amber-400" />
+                <EditableField
+                    label="Retry Backoff"
+                    value={String(data.retry_backoff ?? false)}
+                    type="select"
+                    options={[
+                        { value: 'false', label: 'False' },
+                        { value: 'true', label: 'True' }
+                    ]}
+                    onChange={(v) => onChange('retry_backoff', v === 'true')}
+                    color="text-amber-400"
+                />
             </Section>
         </div>
     );
@@ -343,10 +354,12 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
     const [width, setWidth] = useState(DEFAULT_WIDTH);
     const [isResizing, setIsResizing] = useState(false);
     const [localNode, setLocalNode] = useState(node);
+    const [isHelpOpen, setIsHelpOpen] = useState(false); // Help panel state
 
     // Sync local node with prop changes
     useEffect(() => {
         setLocalNode(node);
+        setIsHelpOpen(false); // Reset help on node change
     }, [node]);
 
     // Report width changes to parent
@@ -473,7 +486,7 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                         <Icon className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h2 className="font-bold text-lg text-foreground leading-tight truncate max-w-[280px]" title={nodeName}>
+                        <h2 className="font-bold text-lg text-foreground leading-tight truncate max-w-[200px]" title={nodeName}>
                             {nodeName}
                         </h2>
                         <span className={cn("text-xs font-medium uppercase tracking-wider", config.color)}>
@@ -481,11 +494,33 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                         </span>
                     </div>
                 </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => setIsHelpOpen(!isHelpOpen)}
+                        className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            isHelpOpen ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                        )}
+                        title="Toggle Help"
+                    >
+                        <Info className="w-4 h-4" />
+                    </button>
+                    {onClose && (
+                        <button
+                            onClick={onClose}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors md:hidden"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
             </div>
         );
 
         content = (
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 relative" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {nodeType === 'agent' && <AgentDetails data={localNode} onChange={handleFieldChange} onBatchChange={handleBatchFieldChange} />}
                 {nodeType === 'tool' && <ToolDetails data={localNode} onChange={handleFieldChange} onBatchChange={handleBatchFieldChange} />}
                 {nodeType === 'router' && <RouterDetails data={localNode} onChange={handleFieldChange} />}
@@ -514,12 +549,19 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
             exit={{ width: 0 }}
             transition={{ type: 'tween', duration: isResizing ? 0 : 0.2, ease: 'easeOut' }}
             className={cn(
-                "h-full border-l border-border bg-background/95 backdrop-blur-xl flex flex-col shrink-0",
+                "h-full border-l border-border bg-background/95 backdrop-blur-xl flex flex-col shrink-0 relative", // Added relative
                 isResizing && "select-none",
                 className
             )}
         >
-            <div style={{ width: width, minWidth: width }} className="h-full flex flex-col relative">
+            {/* Help Panel Slide-out */}
+            <AnimatePresence>
+                {isHelpOpen && (
+                    <NodeHelpPanel nodeType={nodeType} onClose={() => setIsHelpOpen(false)} />
+                )}
+            </AnimatePresence>
+
+            <div style={{ width: width, minWidth: width }} className="h-full flex flex-col relative z-20 bg-background/95 backdrop-blur-xl">
                 {/* Resize Handle */}
                 <div
                     onMouseDown={handleMouseDown}

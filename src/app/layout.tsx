@@ -17,9 +17,20 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Peargent Atlas",
-  description: "Visualize your agent architectures",
+  description: "Build AI Agents visually without any code.",
   icons: {
     icon: "/favicon.ico",
+  },
+  openGraph: {
+    title: "Peargent Atlas",
+    description: "Build AI Agents visually without any code.",
+    images: ["/banner-atlas-2.png"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Peargent Atlas",
+    description: "Build AI Agents visually without any code.",
+    images: ["/banner-atlas-2.png"],
   },
 };
 
