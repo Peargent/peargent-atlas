@@ -274,7 +274,9 @@ const ToolDetails = ({
               });
             } else {
               // Switch to custom tool - restore previous custom code or use template
-              const previousCode = data._previousCustomCode || 'def new_tool(param: str) -> str:\n    return "result"';
+              const previousCode =
+                data._previousCustomCode ||
+                'def new_tool(param: str) -> str:\n    return "result"';
               onBatchChange?.({
                 tool_type: "custom",
                 _importName: undefined,
@@ -320,12 +322,6 @@ const ToolDetails = ({
               {data.description}
             </div>
           )}
-          <div className="text-[10px] text-muted-foreground pt-1 border-t border-amber-500/10">
-            Imported from{" "}
-            <code className="font-mono text-amber-400">
-              peargent.tools.{data._importName || data.name}
-            </code>
-          </div>
         </div>
       )}
 

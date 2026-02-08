@@ -80,6 +80,12 @@ export function EditableField({
   const [fontSize, setFontSize] = useState(15); // Font size state
   const [localValue, setLocalValue] = useState(value);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [hoveredOption, setHoveredOption] = useState<string | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+
   const [aiPrompt, setAiPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [suggestion, setSuggestion] = useState<{
@@ -184,6 +190,14 @@ export function EditableField({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Clear tooltip when dropdown closes
+  useEffect(() => {
+    if (!isDropdownOpen) {
+      setHoveredOption(null);
+      setTooltipPosition(null);
+    }
+  }, [isDropdownOpen]);
+
   // Debounced auto-save
   const handleInputChange = useCallback(
     (newValue: string) => {
@@ -247,6 +261,8 @@ export function EditableField({
     (optionValue: string) => {
       setLocalValue(optionValue);
       setIsDropdownOpen(false);
+      setHoveredOption(null);
+      setTooltipPosition(null);
       let finalValue: any = optionValue;
       if (type === "boolean") {
         if (optionValue === "true") finalValue = true;
@@ -806,7 +822,7 @@ export function EditableField({
           {Icon && <Icon className="w-3 h-3 opacity-60" />}
           {label}
         </div>
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative overflow-visible" ref={dropdownRef}>
           <button
             onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
             disabled={disabled}
@@ -833,6 +849,20 @@ export function EditableField({
                 <button
                   key={opt.value}
                   onClick={() => handleSelectOption(opt.value)}
+                  onMouseEnter={(e) => {
+                    if (opt.description) {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoveredOption(opt.value);
+                      setTooltipPosition({
+                        top: rect.top,
+                        left: rect.left,
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredOption(null);
+                    setTooltipPosition(null);
+                  }}
                   className={cn(
                     "w-full px-3 py-2 text-sm text-left hover:bg-secondary/50 transition-colors",
                     (String(value) === opt.value ||
@@ -851,6 +881,27 @@ export function EditableField({
               ))}
             </div>
           )}
+
+          {/* Tooltip for hovered option - rendered to the left */}
+          {hoveredOption && tooltipPosition && typeof window !== "undefined" &&
+            createPortal(
+              <div
+                className="fixed z-[9999] pointer-events-none"
+                style={{
+                  top: `${tooltipPosition.top}px`,
+                  left: `${tooltipPosition.left - 16}px`,
+                  transform: "translateX(-100%)",
+                }}
+              >
+                <div className="bg-card/95 backdrop-blur-xl border border-border rounded-lg shadow-2xl p-3 max-w-xs">
+                  <p className="text-xs text-foreground/90 leading-relaxed">
+                    {selectOptions.find((o) => o.value === hoveredOption)
+                      ?.description}
+                  </p>
+                </div>
+              </div>,
+              document.body,
+            )}
         </div>
       </div>
     );
