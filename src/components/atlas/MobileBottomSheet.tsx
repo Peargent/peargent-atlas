@@ -114,11 +114,20 @@ export default function MobileBottomSheet({
                         initial={{ y: '100%' }}
                         animate={{ y: 0, height: getHeight(sheetState) }}
                         exit={{ y: '100%' }}
-                        transition={{ type: 'spring', damping: 40, stiffness: 500 }}
+                        transition={{
+                            type: 'spring',
+                            damping: 30,
+                            stiffness: 300,
+                            mass: 0.8
+                        }}
                         drag="y"
                         dragConstraints={{ top: 0, bottom: 0 }}
                         dragElastic={0}
                         onDragEnd={handleDragEnd}
+                        style={{
+                            willChange: 'transform, height',
+                            transform: 'translateZ(0)'
+                        }}
                         className={cn(
                             "fixed bottom-0 left-0 right-0 z-50 md:hidden",
                             "bg-card border-t border-border rounded-t-2xl shadow-2xl",
