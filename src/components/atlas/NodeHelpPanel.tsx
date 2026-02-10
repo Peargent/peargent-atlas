@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 interface NodeHelpPanelProps {
     nodeType: 'agent' | 'router' | 'tool' | 'pool' | 'history' | null;
     onClose: () => void;
+    isMobile?: boolean;
 }
 
 const HelpSection = ({ title, icon: Icon, children, color }: { title: string; icon: any; children: React.ReactNode; color: string }) => (
@@ -28,7 +29,7 @@ const HelpItem = ({ label, description }: { label: string; description: string }
     </div>
 );
 
-export const NodeHelpPanel = ({ nodeType, onClose }: NodeHelpPanelProps) => {
+export const NodeHelpPanel = ({ nodeType, onClose, isMobile = false }: NodeHelpPanelProps) => {
     if (!nodeType) return null;
 
     const content = {
@@ -169,24 +170,37 @@ export const NodeHelpPanel = ({ nodeType, onClose }: NodeHelpPanelProps) => {
 
     return (
         <motion.div
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: isMobile ? 20 : 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="absolute top-0 right-[100%] h-full w-[300px] bg-background/95 backdrop-blur-xl border-l border-y border-border shadow-2xl z-[60] mr-[1px] flex flex-col"
+            exit={{ opacity: 0, x: isMobile ? 20 : 20 }}
+            className={cn(
+                "absolute top-0 h-full bg-background/95 backdrop-blur-xl shadow-2xl z-[60] flex flex-col",
+                isMobile
+                    ? "inset-0 w-full border-none"
+                    : "right-[100%] w-[300px] border-l border-y border-border mr-[1px]"
+            )}
         >
             {/* Header */}
-            <div className="p-4 border-b border-border bg-card/50 relative">
-                <button
-                    onClick={onClose}
-                    className="absolute top-2 right-2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
-                >
-                    <X className="w-4 h-4" />
-                </button>
-                <div className="flex items-center gap-3 mb-2 pr-6">
-                    <div className={cn("p-2 rounded-lg bg-background border border-border", activeContent.color)}>
-                        <Icon className="w-5 h-5" />
+            <div className={cn(
+                "p-4 border-b border-border bg-card/50 relative",
+                isMobile && "border-none bg-transparent p-4" // Remove border/bg on mobile
+            )}>
+                <div className="flex items-start justify-between mb-2">
+                    <div className={cn("flex items-center gap-3", !isMobile && "pr-6")}>
+                        <div className={cn("p-2 rounded-lg bg-background border border-border", activeContent.color)}>
+                            <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="font-bold text-foreground">{activeContent.title}</div>
                     </div>
-                    <div className="font-bold text-foreground">{activeContent.title}</div>
+                    <button
+                        onClick={onClose}
+                        className={cn(
+                            "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors",
+                            !isMobile && "absolute top-2 right-2"
+                        )}
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                     {activeContent.description}

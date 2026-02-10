@@ -480,7 +480,7 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
         const nodeName = localNode.name || localNode.label || nodeType;
 
         header = (
-            <div className="p-4 border-b border-border flex items-center justify-between bg-card/50">
+            <div className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className={cn("p-2.5 rounded-xl", config.bgColor)}>
                         <Icon className="w-5 h-5 text-white" />
@@ -500,21 +500,14 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
                     <button
                         onClick={() => setIsHelpOpen(!isHelpOpen)}
                         className={cn(
-                            "p-2 rounded-lg transition-colors",
+                            "p-1.5 rounded-lg transition-colors",
                             isHelpOpen ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                         )}
                         title="Toggle Help"
                     >
                         <Info className="w-4 h-4" />
                     </button>
-                    {onClose && (
-                        <button
-                            onClick={onClose}
-                            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors md:hidden"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
+
                 </div>
             </div>
         );
@@ -535,7 +528,13 @@ export default function NodeDetailsSidebar({ node, nodeType, onClose, onUpdate, 
     // Mobile View
     if (isMobile) {
         return (
-            <div className={cn("h-full flex flex-col bg-transparent", className)}>
+            <div className={cn("h-full flex flex-col bg-transparent relative", className)}>
+                {/* Help Panel Slide-out for Mobile */}
+                <AnimatePresence>
+                    {isHelpOpen && (
+                        <NodeHelpPanel nodeType={nodeType} onClose={() => setIsHelpOpen(false)} isMobile={true} />
+                    )}
+                </AnimatePresence>
                 {header}
                 {content}
             </div>
