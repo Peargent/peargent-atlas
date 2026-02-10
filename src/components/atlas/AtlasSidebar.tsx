@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, Github, TreeDeciduous, PanelLeft, PanelLeftClose, History, Pencil, Check, Save, Download, FileJson, FileCode, Video, Image as ImageIcon } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Database, Network, Bot, Wrench, Box, TreeDeciduous, PanelLeftClose, History, Pencil, Check, Save, FileJson, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -234,7 +234,24 @@ const buildTree = (json: any): TreeNode => {
     return { id: 'unknown', label: 'Unknown', type: 'collection', children: [] };
 };
 
+// Helper to get path to a node in the tree
+const getPathToNode = (tree: TreeNode | null, targetId: string | null | undefined): TreeNode[] | null => {
+    if (!tree || !targetId) return null;
 
+    const findPath = (node: TreeNode, path: TreeNode[]): TreeNode[] | null => {
+        const currentPath = [...path, node];
+        if (node.id === targetId) return currentPath;
+        if (node.children) {
+            for (const child of node.children) {
+                const result = findPath(child, currentPath);
+                if (result) return result;
+            }
+        }
+        return null;
+    };
+
+    return findPath(tree, []);
+};
 
 const SocialLinks = ({ withHoverEffect = false, vertical = false }: { withHoverEffect?: boolean; vertical?: boolean }) => (
     <div className={cn("flex items-center gap-4", vertical && "flex-col")}>
@@ -491,6 +508,70 @@ const MobileHeader = ({ onClose }: { onClose?: () => void }) => (
     </div>
 );
 
+// Context Spine Component - Shows hierarchy in collapsed state
+const ContextSpine = ({
+    path,
+    onSelect
+}: {
+    path: TreeNode[] | null;
+    onSelect?: (id: string) => void;
+}) => {
+    if (!path || path.length === 0) return null;
+
+    return (
+        <div className="flex flex-col items-center w-full py-4 space-y-2.5">
+            {path.map((node, index) => {
+                const Icon = node.icon || Box;
+                const isLast = index === path.length - 1;
+                const isFirst = index === 0;
+
+                return (
+                    <div key={node.id} className="relative flex flex-col items-center group">
+                        {/* Connecting Line (above) */}
+                        {!isFirst && (
+                            <div className="w-px h-3 bg-border/40 -my-1.5 relative z-0" />
+                        )}
+
+                        <button
+                            onClick={() => onSelect?.(node.id)}
+                            className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 relative z-10",
+                                isLast ? "bg-sidebar-accent shadow-md" : "bg-card/50 hover:bg-sidebar-accent/50",
+                                "border border-border/30"
+                            )}
+                            title={node.label}
+                        >
+                            <Icon className={cn(
+                                "w-4 h-4 transition-transform duration-200",
+                                TYPE_COLORS[node.type],
+                                isLast ? "scale-105" : "opacity-70 group-hover:opacity-100"
+                            )} />
+                        </button>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+// Vertical Node Name - Shows current node name vertically in collapsed state
+const VerticalNodeName = ({ label }: { label: string | undefined }) => {
+    if (!label) return null;
+    return (
+        <div className="flex-1 flex items-center justify-center w-full py-6 text-muted-foreground pointer-events-none overflow-hidden">
+            <div
+                className="whitespace-nowrap text-[10px] font-bold tracking-[0.25em] uppercase opacity-60"
+                style={{
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)'
+                }}
+            >
+                {label}
+            </div>
+        </div>
+    );
+};
+
 const EmptyState = () => (
     <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 opacity-50">
         <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
@@ -540,6 +621,17 @@ export default function AtlasSidebar({
         return filterTree(treeData, searchQuery);
     }, [treeData, searchQuery]);
 
+    // Get path to selected node for collapsed sidebar context spine
+    const selectedPath = useMemo(() => {
+        return getPathToNode(treeData, selectedId);
+    }, [treeData, selectedId]);
+
+    // Get selected node label for vertical text
+    const selectedNodeLabel = useMemo(() => {
+        if (!selectedPath || selectedPath.length === 0) return undefined;
+        return selectedPath[selectedPath.length - 1]?.label;
+    }, [selectedPath]);
+
     const toggleNode = useCallback((id: string) => {
         setExpandedNodes(prev => {
             const newSet = new Set(prev);
@@ -566,17 +658,22 @@ export default function AtlasSidebar({
             <div key={node.id} className="select-none">
                 <div
                     className={cn(
-                        "flex items-center gap-2 py-1.5 px-2 rounded-lg cursor-pointer transition-colors text-sm",
-                        isSelected ? "bg-sidebar-accent text-foreground font-medium" : "hover:bg-white/5",
+                        "flex items-center gap-2 py-1.5 px-2 rounded-r-lg cursor-pointer transition-all duration-200 text-sm relative group/node",
+                        isSelected ? "bg-sidebar-accent/50 text-foreground font-medium border-l-2 border-primary" : "hover:bg-white/5 border-l-2 border-transparent",
                         depth === 0 && !isSelected && "font-semibold text-foreground",
                         depth > 0 && !isSelected && "text-muted-foreground hover:text-foreground"
                     )}
                     style={{ paddingLeft: `${depth * 12 + 8}px` }}
                     onClick={() => onSelect?.(node.id)}
                 >
+                    {/* Active Glow Background */}
+                    {isSelected && (
+                        <div className="absolute inset-0 bg-primary/5 pointer-events-none" />
+                    )}
+
                     <span
                         className={cn(
-                            "text-muted-foreground/50 w-4 h-4 flex items-center justify-center hover:text-foreground transition-colors",
+                            "text-muted-foreground/50 w-4 h-4 flex items-center justify-center hover:text-foreground transition-colors relative z-10",
                             !hasChildren && "invisible"
                         )}
                         onClick={(e) => {
@@ -587,8 +684,8 @@ export default function AtlasSidebar({
                         {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                     </span>
 
-                    <Icon className={cn("w-4 h-4", TYPE_COLORS[node.type])} />
-                    <span className="truncate">{node.label}</span>
+                    <Icon className={cn("w-4 h-4 relative z-10", TYPE_COLORS[node.type])} />
+                    <span className="truncate relative z-10">{node.label}</span>
                 </div>
 
                 <AnimatePresence>
@@ -597,8 +694,13 @@ export default function AtlasSidebar({
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
+                            className="overflow-hidden relative"
                         >
+                            {/* Tree Guide Line */}
+                            <div
+                                className="absolute top-0 bottom-0 w-px bg-border/40"
+                                style={{ left: `${(depth + 1) * 12 + 15}px` }}
+                            />
                             {node.children!.map(child => renderTree(child, depth + 1))}
                         </motion.div>
                     )}
@@ -640,11 +742,12 @@ export default function AtlasSidebar({
 
             {/* Content */}
             {isCollapsed ? (
-                <div className="flex-1 flex flex-col items-center pt-4 gap-2">
+                <div className="flex-1 flex flex-col items-center pt-2 overflow-hidden">
                     {treeData && (
-                        <div className="p-2 rounded-lg bg-emerald-500/10">
-                            <Database className="w-4 h-4 text-emerald-500" />
-                        </div>
+                        <>
+                            <ContextSpine path={selectedPath} onSelect={onSelect} />
+                            <VerticalNodeName label={selectedNodeLabel} />
+                        </>
                     )}
                 </div>
             ) : !treeData ? (
