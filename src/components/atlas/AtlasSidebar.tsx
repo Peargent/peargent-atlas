@@ -556,7 +556,6 @@ const ContextSpine = ({
 
 // Vertical Node Name - Shows current node name vertically in collapsed state
 const VerticalNodeName = ({ label }: { label: string | undefined }) => {
-    if (!label) return null;
     return (
         <div className="flex-1 flex items-center justify-center w-full py-6 text-muted-foreground pointer-events-none overflow-hidden">
             <div
@@ -566,7 +565,7 @@ const VerticalNodeName = ({ label }: { label: string | undefined }) => {
                     transform: 'rotate(180deg)'
                 }}
             >
-                {label}
+                {label || 'Project'}
             </div>
         </div>
     );
@@ -659,9 +658,8 @@ export default function AtlasSidebar({
                 <div
                     className={cn(
                         "flex items-center gap-2 py-1.5 px-2 rounded-r-lg cursor-pointer transition-all duration-200 text-sm relative group/node",
-                        isSelected ? "bg-sidebar-accent/50 text-foreground font-medium border-l-2 border-primary" : "hover:bg-white/5 border-l-2 border-transparent",
-                        depth === 0 && !isSelected && "font-semibold text-foreground",
-                        depth > 0 && !isSelected && "text-muted-foreground hover:text-foreground"
+                        isSelected ? "bg-sidebar-accent/50 text-foreground border-l-2 border-primary" : "hover:bg-white/5 border-l-2 border-transparent",
+                        depth === 0 ? "font-semibold text-foreground" : (isSelected ? "font-medium" : "text-muted-foreground hover:text-foreground")
                     )}
                     style={{ paddingLeft: `${depth * 12 + 8}px` }}
                     onClick={() => onSelect?.(node.id)}
@@ -743,10 +741,27 @@ export default function AtlasSidebar({
             {/* Content */}
             {isCollapsed ? (
                 <div className="flex-1 flex flex-col items-center pt-2 overflow-hidden">
-                    {treeData && (
+                    {treeData ? (
                         <>
-                            <ContextSpine path={selectedPath} onSelect={onSelect} />
+                            {selectedId ? (
+                                <ContextSpine path={selectedPath} onSelect={onSelect} />
+                            ) : (
+                                <div className="py-4">
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-sidebar-accent shadow-md border border-border/30">
+                                        <Box className="w-4 h-4 text-muted-foreground" />
+                                    </div>
+                                </div>
+                            )}
                             <VerticalNodeName label={selectedNodeLabel} />
+                        </>
+                    ) : (
+                        <>
+                            <div className="py-4">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-sidebar-accent shadow-md border border-border/30">
+                                    <Box className="w-4 h-4 text-muted-foreground" />
+                                </div>
+                            </div>
+                            <VerticalNodeName label="Project" />
                         </>
                     )}
                 </div>
